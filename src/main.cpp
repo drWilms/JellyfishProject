@@ -2,7 +2,7 @@
 
 void setup() {
     Serial.begin(115200);
-    Serial.println("Hello, Jellyfish!");
+    Serial.println("Hell yeah, Jellyfish!");
 }
 
 void loop() {
