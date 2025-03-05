@@ -5,10 +5,9 @@ SWTimerManager::SWTimerManager() {
 }
 
 int SWTimerManager::addTimer(unsigned long intervalMs) {
-    if (timerCount >= MAX_TIMERS) return -1;  // Too many timers
-
+    if (timerCount >= MAX_TIMERS) return -1;
     timers[timerCount] = new SWTimer(intervalMs);
-    return timerCount++;  // Return the new timer ID
+    return timerCount++;
 }
 
 bool SWTimerManager::isReady(int timerID) {
@@ -25,5 +24,29 @@ void SWTimerManager::startTimer(int timerID) {
 void SWTimerManager::stopTimer(int timerID) {
     if (timerID >= 0 && timerID < timerCount) {
         timers[timerID]->stop();
+    }
+}
+
+void SWTimerManager::pauseTimer(int timerID) {
+    if (timerID >= 0 && timerID < timerCount) {
+        timers[timerID]->pause();
+    }
+}
+
+void SWTimerManager::resumeTimer(int timerID) {
+    if (timerID >= 0 && timerID < timerCount) {
+        timers[timerID]->resume();
+    }
+}
+
+void SWTimerManager::resetTimer(int timerID) {
+    if (timerID >= 0 && timerID < timerCount) {
+        timers[timerID]->reset();
+    }
+}
+
+void SWTimerManager::changeInterval(int timerID, unsigned long newInterval) {
+    if (timerID >= 0 && timerID < timerCount) {
+        timers[timerID]->setInterval(newInterval);
     }
 }

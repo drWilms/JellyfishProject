@@ -3,9 +3,10 @@
 
 // Debugging Macros
 #define DEBUG true  // Set to false to disable serial output
-#define LOG(x) if (DEBUG) { Serial.println(x); }
+
+#define LOG(...) if (DEBUG) { Serial.print(__VA_ARGS__); Serial.println(); }
 
 // Delay Macros
-#define WAIT(x) delay(x)
+#define WAIT(x) FastLED.delay(x)
 
-#endif
+#endif  // MACROS_INC
