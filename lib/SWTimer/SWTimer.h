@@ -1,5 +1,5 @@
-#ifndef SWTIMER_H
-#define SWTIMER_H
+#ifndef SW_TIMER_H
+#define SW_TIMER_H
 
 #include <Arduino.h>
 
@@ -7,21 +7,12 @@ class SWTimer {
 private:
     unsigned long interval;
     unsigned long lastRun;
-    bool enabled;
-    bool paused;
-    unsigned long pauseTime; // Stores when the timer was paused
+    bool running;
 
 public:
     SWTimer(unsigned long intervalMs);
-    
     void start();
-    void stop();
-    void pause();
-    void resume();
-    void reset();
-    void setInterval(unsigned long newInterval);
-    
-    bool isReady();
+    bool expired();
 };
 
-#endif  // SWTIMER_H
+#endif // SW_TIMER_H

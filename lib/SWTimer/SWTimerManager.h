@@ -2,25 +2,20 @@
 #define SWTIMERMANAGER_H
 
 #include "SWTimer.h"
-
-#define MAX_TIMERS 10
+#include <vector>
+#include <functional>
 
 class SWTimerManager {
 private:
-    SWTimer* timers[MAX_TIMERS];
-    int timerCount;
+    struct TimerEntry {
+        SWTimer* timer;
+        std::function<void()> callback;
+    };
+    std::vector<TimerEntry> timers;
 
 public:
-    SWTimerManager();
-    int addTimer(unsigned long intervalMs);
-
-    bool isReady(int timerID);
-    void startTimer(int timerID);
-    void stopTimer(int timerID);
-    void pauseTimer(int timerID);
-    void resumeTimer(int timerID);
-    void resetTimer(int timerID);
-    void changeInterval(int timerID, unsigned long newInterval);
+    void addTimer(SWTimer& timer, std::function<void()> callback);
+    void update();
 };
 
-#endif  // SWTIMERMANAGER_H
+#endif // SWTIMERMANAGER_H

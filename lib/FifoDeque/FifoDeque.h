@@ -1,27 +1,17 @@
-#ifndef FIFO_DEQUE_H
-#define FIFO_DEQUE_H
+#ifndef FIFODEQUE_H
+#define FIFODEQUE_H
 
-#include "Arduino.h"
+#include <deque>
 #include "QueueEvent.h"
-#include "macros.inc"
-
-#define DEQUE_SIZE 10
 
 class FifoDeque {
+private:
+    std::deque<QueueEvent*> queue;
+
 public:
-    explicit FifoDeque();
     void pushBack(QueueEvent* event);
     QueueEvent* pickToken(int index);
-    QueueEvent* peekFront();
-    QueueEvent* peekBack();
-    bool isFull();
-    int count();
-
-private:
-    QueueEvent* queue[DEQUE_SIZE];
-    int frontIndex;
-    int backIndex;
-    int itemCount;
+    bool isEmpty();
 };
 
-#endif // FIFO_DEQUE_H
+#endif // FIFODEQUE_H

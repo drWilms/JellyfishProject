@@ -1,22 +1,27 @@
 #include "JellyfishLEDs.h"
 
-void JellyfishLEDs::init() {
+JellyfishLEDs::JellyfishLEDs() {
     FastLED.addLeds<LED_TYPE, LED_PIN, LED_RGB_ORDER>(leds, NUM_LEDS);
+    FastLED.clear();
+}
+
+void JellyfishLEDs::init() {
     FastLED.clear();
     FastLED.show();
 }
 
-void JellyfishLEDs::setLED(int index, int r, int g, int b) {
-    if (index < NUM_LEDS) {
-        leds[index] = CRGB(r, g, b);
+void JellyfishLEDs::setSingleColor(int index, CRGB color) {
+    if (index >= 0 && index < NUM_LEDS) {
+        leds[index] = color;
         FastLED.show();
     }
 }
 
-void JellyfishLEDs::updateRainbow() {
-    for (int i = 1; i < NUM_LEDS; i++) {
-        leds[i] = CHSV(hue + (i * 10), 255, 150);
+void JellyfishLEDs::runRainbow() {
+    static uint8_t hue = 0;
+    for (int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = CHSV(hue + (i * 10), 255, 255);
     }
-    hue += 2;  // Slowly shift hue
     FastLED.show();
+    hue += 5;
 }

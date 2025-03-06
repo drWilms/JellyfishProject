@@ -1,6 +1,6 @@
 #include "config.h"
 
-// === Global Variable Definitions ===
+// === Global Variables ===
 int audioLevel = 0;
 bool silentMode = false;
-int brightness = 100;
+int brightness = 150;

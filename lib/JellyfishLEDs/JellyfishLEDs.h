@@ -5,14 +5,14 @@
 #include "config.h"
 
 class JellyfishLEDs {
-public:
-    void init();
-    void setLED(int index, int r, int g, int b);
-    void updateRainbow();
-
 private:
     CRGB leds[NUM_LEDS];
-    int hue = 0;
+
+public:
+    JellyfishLEDs();
+    void init();
+    void setSingleColor(int index, CRGB color);
+    void runRainbow();
 };
 
-#endif
+#endif // JELLYFISHLEDS_H

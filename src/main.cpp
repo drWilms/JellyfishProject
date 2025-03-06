@@ -1,75 +1,85 @@
 #include <Arduino.h>
 #include <FastLED.h>
-#include "config.h"
 #include "SWTimer.h"
 #include "SWTimerManager.h"
+#include "config.h"
+#include "macros.inc"
+
+// LED Array
+CRGB leds[NUM_LEDS];
+
+// Timers
+SWTimer onBoardLEDTimer(LED_BLINK_INTERVAL);
+SWTimer rgbBlinkTimer(750);
+SWTimer rgbSecondBlinkTimer(1000);
+SWTimer rainbowTimer(50);
 
 SWTimerManager timerManager;
 
-// LED Arrays
-CRGB leds[NUM_LEDS];
+// LED states
+bool rgbBlinkState = false;
+bool rgbSecondBlinkState = false;
+bool onBoardLEDState = false;
 
-// SWTimers for LED effects
-SWTimer onBoardLEDTimer(LED_BLINK_INTERVAL);
-SWTimer rgbBlinkTimer(750);  // Blinking blue every 750ms
-SWTimer rainbowTimer(50);    // Slow rainbow effect update
-
-// Function to toggle on-board LED
+// Toggle the onboard LED
 void toggleOnBoardLED() {
-    static bool ledState = false;
-    digitalWrite(LED_PIN, ledState ? HIGH : LOW);
-    ledState = !ledState;
+    LOG("✅ Toggling Onboard LED");
+    onBoardLEDState = !onBoardLEDState;
+    digitalWrite(LED_PIN, onBoardLEDState);
 }
 
-// Function to toggle RGB LED #0 to blue
+// Blink `RGB #0`
 void toggleRGBBlue() {
-    static bool isOn = false;
-    leds[0] = isOn ? CRGB::Black : CRGB::Blue;
-    isOn = !isOn;
+    LOG("✅ Toggling RGB #0 (Blue Blink)");
+    rgbBlinkState = !rgbBlinkState;
+    leds[0] = rgbBlinkState ? CRGB::Blue : CRGB::Black;
     FastLED.show();
 }
 
-// Function to update the rainbow effect
+// Blink `RGB #1` separately
+void toggleRGBSecondLED() {
+    LOG("✅ Toggling RGB #1 (Alternate Blink)");
+    rgbSecondBlinkState = !rgbSecondBlinkState;
+    leds[1] = rgbSecondBlinkState ? CRGB::Blue : CRGB::Black;
+    FastLED.show();
+}
+
+// Update rainbow effect
 void updateRainbow() {
     static uint8_t hue = 0;
-    for (int i = 1; i < NUM_LEDS; i++) {  // Start from LED 1 to leave LED 0 for blinking
-        leds[i] = CHSV(hue + (i * 10), 255, 150);
+    LOG("🌈 Updating Rainbow Effect");
+    for (int i = 2; i < NUM_LEDS; i++) {
+        leds[i] = CHSV(hue + (i * 10), 255, brightness);
     }
-    hue += 1;  // Shift the colors over time
     FastLED.show();
+    hue++;
 }
 
+// Setup
 void setup() {
     Serial.begin(115200);
+    FastLED.delay(1000);
+   LOG("🚀 Jellyfish Project: LED Animation Start");
+
     pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, LOW);
+
     FastLED.addLeds<LED_TYPE, PIN_LED, LED_RGB_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
     FastLED.clear();
     FastLED.show();
 
-    // Start timers
+    timerManager.addTimer(onBoardLEDTimer, toggleOnBoardLED);
+    timerManager.addTimer(rgbBlinkTimer, toggleRGBBlue);
+    timerManager.addTimer(rgbSecondBlinkTimer, toggleRGBSecondLED);
+    timerManager.addTimer(rainbowTimer, updateRainbow);
+
     onBoardLEDTimer.start();
     rgbBlinkTimer.start();
+    rgbSecondBlinkTimer.start();
     rainbowTimer.start();
-
-    Serial.println("🚀 Jellyfish Project: LED Animation Start");
 }
 
+// Main loop
 void loop() {
-    // Handle on-board LED blink
-    if (onBoardLEDTimer.isReady()) {
-        toggleOnBoardLED();
-        onBoardLEDTimer.start();  // Restart timer
-    }
-
-    // Handle RGB LED #0 blinking blue
-    if (rgbBlinkTimer.isReady()) {
-        toggleRGBBlue();
-        rgbBlinkTimer.start();  // Restart timer
-    }
-
-    // Handle rainbow effect
-    if (rainbowTimer.isReady()) {
-        updateRainbow();
-        rainbowTimer.start();  // Restart timer
-    }
+    timerManager.update();
 }
