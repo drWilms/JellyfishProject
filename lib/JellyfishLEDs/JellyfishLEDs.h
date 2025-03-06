@@ -1,18 +1,18 @@
-#ifndef JELLYFISH_LEDS_H
-#define JELLYFISH_LEDS_H
+#ifndef JELLYFISHLEDS_H
+#define JELLYFISHLEDS_H
 
 #include <FastLED.h>
-#include "config.h"  // ✅ Ensure LED settings come from config
+#include "config.h"
 
 class JellyfishLEDs {
 public:
-    JellyfishLEDs();
-    void begin();
-    void startEffect(int pattern, int duration, int brightness);
-    void clearEffect();  // ✅ Clear LEDs properly after effect
+    void init();
+    void setLED(int index, int r, int g, int b);
+    void updateRainbow();
 
 private:
-    CRGB leds[NUM_LEDS];  // ✅ Using `NUM_LEDS` from config.h
+    CRGB leds[NUM_LEDS];
+    int hue = 0;
 };
 
-#endif // JELLYFISH_LEDS_H
+#endif

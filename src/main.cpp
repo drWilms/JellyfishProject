@@ -1,74 +1,75 @@
-#include "FifoDeque.h"
+#include <Arduino.h>
+#include <FastLED.h>
+#include "config.h"
 #include "SWTimer.h"
 #include "SWTimerManager.h"
-#include "JellyfishLEDs.h"
-#include "config.h"  // ✅ Ensure correct settings are used
 
-FifoDeque eventQueue;
-SWTimer eventTimer(EVENT_PROCESS_INTERVAL);
-SWTimer ledEffectTimer(0);
-JellyfishLEDs leds;
+SWTimerManager timerManager;
 
-void processQueueEvent() {
-    if (eventQueue.count() > 0) {
-        QueueEvent* nextEvent = eventQueue.pickToken(0);
-        if (nextEvent) {
-            switch (nextEvent->type) {
-                case QueueEvent::AUDIO:
-                LOG("Playing audio: %s", nextEvent->audio.filePath);
+// LED Arrays
+CRGB leds[NUM_LEDS];
 
-                    break;
-                case QueueEvent::LIGHT:
-                    LOG("Starting light show pattern:", nextEvent->light.pattern);
-                    leds.startEffect(nextEvent->light.pattern, nextEvent->light.duration, nextEvent->light.brightness);
-                    ledEffectTimer.setInterval(nextEvent->light.duration);
-                    ledEffectTimer.start();
-                    break;
-                case QueueEvent::CLOCK:
-                    LOG("Speaking time:", nextEvent->clock.hour, ":", nextEvent->clock.minute);
-                    break;
-                case QueueEvent::TIMER:
-                    LOG("Waiting for", nextEvent->timer.delayMs, "ms");
-                    eventTimer.setInterval(nextEvent->timer.delayMs);
-                    eventTimer.start();
-                    break;
-            }
-            delete nextEvent;
-        }
-    }
+// SWTimers for LED effects
+SWTimer onBoardLEDTimer(LED_BLINK_INTERVAL);
+SWTimer rgbBlinkTimer(750);  // Blinking blue every 750ms
+SWTimer rainbowTimer(50);    // Slow rainbow effect update
 
-    eventTimer.reset();
+// Function to toggle on-board LED
+void toggleOnBoardLED() {
+    static bool ledState = false;
+    digitalWrite(LED_PIN, ledState ? HIGH : LOW);
+    ledState = !ledState;
 }
 
-void handleLEDTimeout() {
-    if (ledEffectTimer.isReady()) {
-        LOG("LED effect duration ended, clearing LEDs.");
-        leds.clearEffect();  // ✅ Now properly managed
-        ledEffectTimer.stop();
+// Function to toggle RGB LED #0 to blue
+void toggleRGBBlue() {
+    static bool isOn = false;
+    leds[0] = isOn ? CRGB::Black : CRGB::Blue;
+    isOn = !isOn;
+    FastLED.show();
+}
+
+// Function to update the rainbow effect
+void updateRainbow() {
+    static uint8_t hue = 0;
+    for (int i = 1; i < NUM_LEDS; i++) {  // Start from LED 1 to leave LED 0 for blinking
+        leds[i] = CHSV(hue + (i * 10), 255, 150);
     }
+    hue += 1;  // Shift the colors over time
+    FastLED.show();
 }
 
 void setup() {
     Serial.begin(115200);
-    delay(2000);
+    pinMode(LED_PIN, OUTPUT);
+    FastLED.addLeds<LED_TYPE, PIN_LED, LED_RGB_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
+    FastLED.clear();
+    FastLED.show();
 
-    LOG("🚀 Jellyfish Project: Startup");
-    leds.begin();
-    eventTimer.start();
+    // Start timers
+    onBoardLEDTimer.start();
+    rgbBlinkTimer.start();
+    rainbowTimer.start();
 
-    QueueEvent* ledEvent = new QueueEvent;
-    ledEvent->type = QueueEvent::LIGHT;
-    ledEvent->light.pattern = 1;
-    ledEvent->light.duration = LED_EFFECT_DURATION;  // ✅ From config.h
-    ledEvent->light.brightness = DEFAULT_BRIGHTNESS;
-    eventQueue.pushBack(ledEvent);
-
-    LOG("Queue initialized with test events.");
+    Serial.println("🚀 Jellyfish Project: LED Animation Start");
 }
 
 void loop() {
-    if (eventTimer.isReady()) {
-        processQueueEvent();
+    // Handle on-board LED blink
+    if (onBoardLEDTimer.isReady()) {
+        toggleOnBoardLED();
+        onBoardLEDTimer.start();  // Restart timer
     }
-    handleLEDTimeout();
+
+    // Handle RGB LED #0 blinking blue
+    if (rgbBlinkTimer.isReady()) {
+        toggleRGBBlue();
+        rgbBlinkTimer.start();  // Restart timer
+    }
+
+    // Handle rainbow effect
+    if (rainbowTimer.isReady()) {
+        updateRainbow();
+        rainbowTimer.start();  // Restart timer
+    }
 }
