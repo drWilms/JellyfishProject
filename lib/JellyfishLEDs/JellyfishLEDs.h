@@ -1,22 +1,18 @@
-#ifndef JELLYFISHLEDS_H
-#define JELLYFISHLEDS_H
+#ifndef JELLYFISH_LEDS_H
+#define JELLYFISH_LEDS_H
 
-#include <Arduino.h>
-#include "config.h"      // NUM_LEDS must be included BEFORE it's used
 #include <FastLED.h>
-#include "SWTimerManager.h"
+#include "config.h"  // ✅ Ensure LED settings come from config
 
 class JellyfishLEDs {
-private:
-    CRGB* leds;          // Use pointer instead of fixed array
-    SWTimerManager* timerManager;
-    int timerID;
-
 public:
-    JellyfishLEDs(SWTimerManager* tm);
-    ~JellyfishLEDs();    // Destructor to free memory
+    JellyfishLEDs();
     void begin();
-    void update();
+    void startEffect(int pattern, int duration, int brightness);
+    void clearEffect();  // ✅ Clear LEDs properly after effect
+
+private:
+    CRGB leds[NUM_LEDS];  // ✅ Using `NUM_LEDS` from config.h
 };
 
-#endif  // JELLYFISHLEDS_H
+#endif // JELLYFISH_LEDS_H
