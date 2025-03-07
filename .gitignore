@@ -2,3 +2,5 @@
 .vscode/
 build/
 lib/Config/config_secrets.h
+SyncForChatGPT/
+UpdatesFromChatGPT/
