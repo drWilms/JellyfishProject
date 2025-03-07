@@ -1,12 +1,13 @@
 #ifndef QUEUE_EVENT_H
 #define QUEUE_EVENT_H
 
-#include <cstring> // Ensure we have access to strncpy
+#include <cstring>
 
 enum class EventType {
     AUDIO,
     LIGHT,
-    TIMER
+    TIMER,
+    WIFI // ✅ Added WiFi event type
 };
 
 struct QueueEvent {
@@ -31,5 +32,6 @@ struct QueueEvent {
 QueueEvent createAudioEvent(const char* filePath);
 QueueEvent createLightEvent(int pattern, int duration, int brightness);
 QueueEvent createTimerEvent(int delayMs);
+QueueEvent createWiFiEvent(); // ✅ New function to create a WiFi event
 
 #endif // QUEUE_EVENT_H

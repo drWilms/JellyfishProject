@@ -1,85 +1,104 @@
 #include <Arduino.h>
-#include <FastLED.h>
-#include "SWTimer.h"
-#include "SWTimerManager.h"
 #include "config.h"
 #include "macros.inc"
+#include <WiFi.h>  // ✅ Correct ESP32 WiFi library
+#include "FifoDeque.h"
+#include "QueueEvent.h"
+#include "SWTimerManager.h"
+#include "JellyfishLEDs.h"
 
-// LED Array
-CRGB leds[NUM_LEDS];
-
-// Timers
-SWTimer onBoardLEDTimer(LED_BLINK_INTERVAL);
-SWTimer rgbBlinkTimer(750);
-SWTimer rgbSecondBlinkTimer(1000);
-SWTimer rainbowTimer(50);
-
+FifoDeque eventQueue;
 SWTimerManager timerManager;
+JellyfishLEDs jellyfishLEDs;
 
-// LED states
-bool rgbBlinkState = false;
-bool rgbSecondBlinkState = false;
-bool onBoardLEDState = false;
+SWTimer queueTimer(QUEUE_CHECK_INTERVAL);
+SWTimer wifiTimer(WIFI_CHECK_INTERVAL);
+SWTimer onBoardLEDTimer(LED_BLINK_INTERVAL);
+SWTimer rgbBlinkTimer(RGB_BLINK_INTERVAL);
+SWTimer rainbowTimer(RAINBOW_INTERVAL);
 
-// Toggle the onboard LED
-void toggleOnBoardLED() {
-    LOG("✅ Toggling Onboard LED");
-    onBoardLEDState = !onBoardLEDState;
-    digitalWrite(LED_PIN, onBoardLEDState);
-}
+bool blueState = false;
+uint8_t hue = 0;
 
-// Blink `RGB #0`
-void toggleRGBBlue() {
-    LOG("✅ Toggling RGB #0 (Blue Blink)");
-    rgbBlinkState = !rgbBlinkState;
-    leds[0] = rgbBlinkState ? CRGB::Blue : CRGB::Black;
-    FastLED.show();
-}
+void processQueueEvent() {
+    if (eventQueue.isEmpty()) return;
 
-// Blink `RGB #1` separately
-void toggleRGBSecondLED() {
-    LOG("✅ Toggling RGB #1 (Alternate Blink)");
-    rgbSecondBlinkState = !rgbSecondBlinkState;
-    leds[1] = rgbSecondBlinkState ? CRGB::Blue : CRGB::Black;
-    FastLED.show();
-}
+    QueueEvent event = eventQueue.dequeue();
 
-// Update rainbow effect
-void updateRainbow() {
-    static uint8_t hue = 0;
-    LOG("🌈 Updating Rainbow Effect");
-    for (int i = 2; i < NUM_LEDS; i++) {
-        leds[i] = CHSV(hue + (i * 10), 255, brightness);
+    switch (event.type) {
+        case EventType::AUDIO:
+            LOG("Playing audio...");
+            break;
+
+        case EventType::LIGHT:
+            LOG("Handling light effect...");
+            break;
+
+        case EventType::TIMER:
+            LOG("Timer event triggered...");
+            break;
+
+        case EventType::WIFI:
+            LOG("Checking WiFi connection...");
+            if (WiFi.status() != WL_CONNECTED) {
+                LOG("WiFi not connected. Reconnecting...");
+                WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+            } else {
+                LOG("WiFi already connected!");
+            }
+            break;
     }
-    FastLED.show();
-    hue++;
 }
 
-// Setup
+void toggleOnboardLED() {
+    static bool state = false;
+    state = !state;
+    digitalWrite(LED_PIN, state);
+    LOG("Toggling Onboard LED");
+}
+
+void toggleRGBBlue() {
+    blueState = !blueState;
+    jellyfishLEDs.setSingleColor(0, blueState ? CRGB::Blue : CRGB::Black);
+}
+
+void updateRainbow() {
+    hue += 10;
+}
+
 void setup() {
     Serial.begin(115200);
-    FastLED.delay(1000);
-   LOG("🚀 Jellyfish Project: LED Animation Start");
+    LOG("Jellyfish Project: Startup");
 
     pinMode(LED_PIN, OUTPUT);
-    digitalWrite(LED_PIN, LOW);
 
-    FastLED.addLeds<LED_TYPE, PIN_LED, LED_RGB_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
-    FastLED.clear();
-    FastLED.show();
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    LOG("WiFi Connecting...");
 
-    timerManager.addTimer(onBoardLEDTimer, toggleOnBoardLED);
-    timerManager.addTimer(rgbBlinkTimer, toggleRGBBlue);
-    timerManager.addTimer(rgbSecondBlinkTimer, toggleRGBSecondLED);
-    timerManager.addTimer(rainbowTimer, updateRainbow);
+    eventQueue.pushBack(createWiFiEvent());
+
+    wifiTimer.start();
+    timerManager.addTimer(wifiTimer, []() {
+        eventQueue.pushBack(createWiFiEvent());
+    });
+
+    queueTimer.start();
+    timerManager.addTimer(queueTimer, processQueueEvent);
 
     onBoardLEDTimer.start();
+    timerManager.addTimer(onBoardLEDTimer, toggleOnboardLED);
+
     rgbBlinkTimer.start();
-    rgbSecondBlinkTimer.start();
+    timerManager.addTimer(rgbBlinkTimer, toggleRGBBlue);
+
     rainbowTimer.start();
+    timerManager.addTimer(rainbowTimer, updateRainbow);
+
+    LOG("Timers initialized");
 }
 
-// Main loop
 void loop() {
     timerManager.update();
+    WAIT(1000);
 }

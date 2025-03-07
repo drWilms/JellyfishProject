@@ -2,6 +2,8 @@
 #define CONFIG_H
 
 #include <Arduino.h>
+#include "config_secrets.h"
+
 
 // === Pin Definitions ===
 #define LED_PIN         2  // Built-in LED
