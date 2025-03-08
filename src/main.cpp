@@ -4,11 +4,11 @@
 #include "macros.inc"
 #include <WiFi.h>
 #include "JellyfishQueue.h"
-#include "HierarchicalTimerManager.h"
+#include "TimerManager.h"
 #include "JellyfishLEDs.h"
 
 JellyfishQueue queue;
-HierarchicalTimerManager timerManager;
+TimerManager timerManager;
 JellyfishLEDs jellyfishLEDs;
 
 // Define timers based on the new hierarchy

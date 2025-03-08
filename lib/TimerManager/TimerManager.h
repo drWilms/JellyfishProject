@@ -1,13 +1,13 @@
-// ========================= HierarchicalTimerManager.h =========================
-#ifndef HIERARCHICALTIMERMANAGER_H
-#define HIERARCHICALTIMERMANAGER_H
+// ========================= TimerManager.h =========================
+#ifndef TIMERMANAGER_H
+#define TIMERMANAGER_H
 
 #include <vector>
 #include <functional>
 #include <Arduino.h>
 #include "SWTimer.h"
 
-class HierarchicalTimerManager {
+class TimerManager {
 private:
     std::vector<std::pair<SWTimer, std::function<void()>>> slowTimers;
     std::vector<std::pair<SWTimer, std::function<void()>>> fastTimers;
@@ -20,4 +20,4 @@ public:
     void update();
 };
 
-#endif // HIERARCHICALTIMERMANAGER_H
+#endif // TIMERMANAGER_H
