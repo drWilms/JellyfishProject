@@ -1,13 +1,18 @@
 #include <Arduino.h>
 #include "config.h"
 #include "macros.inc"
-#include <WiFi.h>  // ✅ Correct ESP32 WiFi library
-#include "FifoDeque.h"
-#include "QueueEvent.h"
+#include <WiFi.h> 
+#include "JellyfishQueue.h"
+
+//#include "FifoDeque.h"
+//#include "QueueEvent.h"
 #include "SWTimerManager.h"
 #include "JellyfishLEDs.h"
 
-FifoDeque eventQueue;
+JellyfishQueue queue;
+queue.enqueue("/track1.mp3");
+LOG("Next track: ", queue.peek().c_str());
+
 SWTimerManager timerManager;
 JellyfishLEDs jellyfishLEDs;
 

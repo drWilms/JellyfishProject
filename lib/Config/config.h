@@ -1,9 +1,14 @@
+/**
+ * Jellyfish Project - Refactored Codebase
+ * Version: 2025-03-07
+ */
+
+// ========================= config.h =========================
 #ifndef CONFIG_H
 #define CONFIG_H
 
 #include <Arduino.h>
 #include "config_secrets.h"
-
 
 // === Pin Definitions ===
 #define LED_PIN         2  // Built-in LED
