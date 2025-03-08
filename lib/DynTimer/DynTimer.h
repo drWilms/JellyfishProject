@@ -1,9 +1,7 @@
 #ifndef DYNTIMER_H
 #define DYNTIMER_H
 
-#include <Arduino.h>
 #include <functional>
-#include <vector>
 
 class DynTimer {
 private:
@@ -11,18 +9,20 @@ private:
     unsigned long nextExecution;
     std::function<void()> callback;
     bool repeating;
-
-    static std::vector<DynTimer> activeTimers;
+    bool running;
+    unsigned long pauseRemaining;
 
 public:
-    DynTimer(unsigned long intervalMs, std::function<void()> cb, bool repeat = true);
+    DynTimer(unsigned long intervalMs, std::function<void()> callback, bool repeating = true);
+    void reset(unsigned long newInterval);
+    void start(unsigned long newInterval);
     
-    void start();
+    void pause();
+    void resume();
     bool isReady();
-    void reset();
-    
-    static void addTimer(unsigned long intervalMs, std::function<void()> cb, bool repeat = true);
+ 
     static void update();
+
 };
 
 #endif // DYNTIMER_H
