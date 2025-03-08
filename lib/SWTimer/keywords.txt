@@ -1,0 +1,5 @@
+# Keywords for SWTimer
+SWTimer      KEYWORD1
+start        KEYWORD2
+update       KEYWORD2
+expired      KEYWORD2

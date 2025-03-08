@@ -1,5 +1,5 @@
 /**
- * Jellyfish Project - Refactored Codebase
+ * Jellyfish Project - Fully Restored Codebase with Timer Hierarchy
  * Version: 2025-03-07
  */
 
@@ -24,10 +24,9 @@
 #define LED_RGB_ORDER GRB  // Define RGB order
 
 // === Timer Intervals ===
-#define LED_TIMER_INTERVAL 500  // LED update interval in milliseconds
-#define LED_BLINK_INTERVAL 1000 // 1-second blink for on-board LED
-#define RGB_BLINK_INTERVAL 750  // Blinking interval for RGB LEDs
-#define RAINBOW_INTERVAL 50     // Rainbow effect update interval
+#define SLOW_TIMER_INTERVAL   1000  // 1 second and above
+#define FAST_TIMER_INTERVAL    250  // 100ms - 999ms
+#define ULTRAFAST_TIMER_INTERVAL 50 // Below 100ms
 
 // === Global Variables ===
 extern int audioLevel;   // Stores real-time audio level

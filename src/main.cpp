@@ -1,58 +1,28 @@
+// ========================= main.cpp =========================
 #include <Arduino.h>
 #include "config.h"
 #include "macros.inc"
-#include <WiFi.h> 
+#include <WiFi.h>
 #include "JellyfishQueue.h"
-
-//#include "FifoDeque.h"
-//#include "QueueEvent.h"
-#include "SWTimerManager.h"
+#include "HierarchicalTimerManager.h"
 #include "JellyfishLEDs.h"
 
 JellyfishQueue queue;
-queue.enqueue("/track1.mp3");
-LOG("Next track: ", queue.peek().c_str());
-
-SWTimerManager timerManager;
+HierarchicalTimerManager timerManager;
 JellyfishLEDs jellyfishLEDs;
 
-SWTimer queueTimer(QUEUE_CHECK_INTERVAL);
-SWTimer wifiTimer(WIFI_CHECK_INTERVAL);
-SWTimer onBoardLEDTimer(LED_BLINK_INTERVAL);
-SWTimer rgbBlinkTimer(RGB_BLINK_INTERVAL);
-SWTimer rainbowTimer(RAINBOW_INTERVAL);
+// Define timers based on the new hierarchy
+SWTimer slowTimer(SLOW_TIMER_INTERVAL);
+SWTimer fastTimer(FAST_TIMER_INTERVAL);
+SWTimer ultraFastTimer(ULTRAFAST_TIMER_INTERVAL);
 
 bool blueState = false;
 uint8_t hue = 0;
 
 void processQueueEvent() {
-    if (eventQueue.isEmpty()) return;
-
-    QueueEvent event = eventQueue.dequeue();
-
-    switch (event.type) {
-        case EventType::AUDIO:
-            LOG("Playing audio...");
-            break;
-
-        case EventType::LIGHT:
-            LOG("Handling light effect...");
-            break;
-
-        case EventType::TIMER:
-            LOG("Timer event triggered...");
-            break;
-
-        case EventType::WIFI:
-            LOG("Checking WiFi connection...");
-            if (WiFi.status() != WL_CONNECTED) {
-                LOG("WiFi not connected. Reconnecting...");
-                WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-            } else {
-                LOG("WiFi already connected!");
-            }
-            break;
-    }
+    if (queue.isEmpty()) return;
+    std::string event = queue.dequeue();
+    LOG("Processing queue event: ", event.c_str());
 }
 
 void toggleOnboardLED() {
@@ -81,26 +51,14 @@ void setup() {
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     LOG("WiFi Connecting...");
 
-    eventQueue.pushBack(createWiFiEvent());
+    queue.enqueue("/track1.mp3");
 
-    wifiTimer.start();
-    timerManager.addTimer(wifiTimer, []() {
-        eventQueue.pushBack(createWiFiEvent());
-    });
+    // Assign timers to their categories
+    timerManager.addSlowTimer(slowTimer, processQueueEvent);
+    timerManager.addFastTimer(fastTimer, toggleOnboardLED);
+    timerManager.addUltraFastTimer(ultraFastTimer, updateRainbow);
 
-    queueTimer.start();
-    timerManager.addTimer(queueTimer, processQueueEvent);
-
-    onBoardLEDTimer.start();
-    timerManager.addTimer(onBoardLEDTimer, toggleOnboardLED);
-
-    rgbBlinkTimer.start();
-    timerManager.addTimer(rgbBlinkTimer, toggleRGBBlue);
-
-    rainbowTimer.start();
-    timerManager.addTimer(rainbowTimer, updateRainbow);
-
-    LOG("Timers initialized");
+    LOG("Timers initialized with hierarchy");
 }
 
 void loop() {

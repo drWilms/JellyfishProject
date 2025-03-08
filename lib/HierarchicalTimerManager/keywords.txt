@@ -1,0 +1,6 @@
+# Keywords for HierarchicalTimerManager
+HierarchicalTimerManager  KEYWORD1
+addSlowTimer              KEYWORD2
+addFastTimer              KEYWORD2
+addUltraFastTimer         KEYWORD2
+update                    KEYWORD2

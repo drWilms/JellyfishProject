@@ -1,0 +1,5 @@
+# Keywords for JellyfishLEDs
+JellyfishLEDs   KEYWORD1
+setSingleColor  KEYWORD2
+updateLEDs      KEYWORD2
+clearLEDs       KEYWORD2

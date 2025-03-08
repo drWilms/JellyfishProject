@@ -1,3 +1,4 @@
+// ========================= SWTimer.h =========================
 #ifndef SW_TIMER_H
 #define SW_TIMER_H
 
@@ -12,6 +13,7 @@ private:
 public:
     SWTimer(unsigned long intervalMs);
     void start();
+    void update();
     bool expired();
 };
 

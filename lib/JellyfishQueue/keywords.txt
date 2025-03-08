@@ -1,0 +1,6 @@
+# Keywords for JellyfishQueue
+JellyfishQueue  KEYWORD1
+enqueue         KEYWORD2
+dequeue         KEYWORD2
+isEmpty         KEYWORD2
+clear           KEYWORD2

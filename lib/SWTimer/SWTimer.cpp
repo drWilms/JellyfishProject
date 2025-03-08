@@ -1,3 +1,4 @@
+// ========================= SWTimer.cpp =========================
 #include "SWTimer.h"
 
 SWTimer::SWTimer(unsigned long intervalMs) {
@@ -11,7 +12,12 @@ void SWTimer::start() {
     running = true;
 }
 
+void SWTimer::update() {
+    if (running && millis() - lastRun >= interval) {
+        running = false;
+    }
+}
+
 bool SWTimer::expired() {
-    if (!running) return false;
-    return (millis() - lastRun >= interval);
+    return !running;
 }
