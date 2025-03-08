@@ -1,57 +1,29 @@
-// ========================= main.cpp =========================
 #include <Arduino.h>
 #include "config.h"
-#include "macros.inc"
-#include <WiFi.h>
-#include "JellyfishQueue.h"
-#include "TimerManager.h"
-#include "JellyfishLEDs.h"
-
-JellyfishQueue queue;
-TimerManager timerManager;
-JellyfishLEDs jellyfishLEDs;
-
-// Define timers based on the new hierarchy
-SWTimer slowTimer(SLOW_TIMER_INTERVAL);
-SWTimer fastTimer(FAST_TIMER_INTERVAL);
-SWTimer ultraFastTimer(ULTRAFAST_TIMER_INTERVAL);
-
-bool blueState = false;
-uint8_t hue = 0;
-
-void processQueueEvent() {
-    Serial.printf("Queue size before dequeuing: %d\n", queue.size());
-    if (queue.isEmpty()) return;
-    std::string event = queue.dequeue();
-    Serial.printf("Processing queue event: %s\n", event.c_str());
-}
+#include "DynTimer.h"
 
 void toggleOnboardLED() {
-    static bool state = false;
-    state = !state;
-    digitalWrite(LED_PIN, state);
-    Serial.printf("Toggling Onboard LED at %lu\n", millis());
+    static bool ledState = false;
+    ledState = !ledState;
+    digitalWrite(LED_PIN, ledState);
+    Serial.printf("Toggling Onboard LED at %lu ms\n", millis());
+}
+
+void printMessage() {
+    Serial.printf("Message printed at %lu ms\n", millis());
 }
 
 void setup() {
     Serial.begin(115200);
-    Serial.println("Jellyfish Project: Startup");
-
     pinMode(LED_PIN, OUTPUT);
 
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    Serial.println("WiFi Connecting...");
+    // Add timers dynamically
+    DynTimer::addTimer(1000, toggleOnboardLED, true);  // LED every 1 sec
+    DynTimer::addTimer(500, printMessage, true);       // Message every 500ms
 
-    queue.enqueue("/track1.mp3");
-
-    timerManager.addSlowTimer(slowTimer, processQueueEvent);
-    timerManager.addFastTimer(fastTimer, toggleOnboardLED);
-
-    Serial.println("Timers initialized with hierarchy");
+    Serial.println("DynTimer Multi-Timer Test Started");
 }
 
 void loop() {
-    timerManager.update();
-    delay(1000);
+    DynTimer::update();  // Check and execute active timers
 }
