@@ -5,7 +5,7 @@
 #define DEBUG true
 
 #if DEBUG
-  #define LOG(fmt, ...) Serial.printf((String(fmt) + "\n").c_str(), ##__VA_ARGS__)
+ #define LOG(fmt, ...) Serial.printf(fmt, ##__VA_ARGS__); Serial.println();
 #else
   #define LOG(...)
 #endif
