@@ -1,0 +1,332 @@
+Jellyfish Development Agreement
+
+Promises by ChatGPT, rules by Jan (Jellyfish)
+
+Jellyfish Project - Software Development Plan
+This document outlines the structured development process for the Jellyfish project, ensuring modularity, version control, and dynamic functionality throughout each stage. The project will be developed in incremental steps, with milestones for integration testing.
+#-1 Preliminaries
+1. Setup a private GitHub repository and ensure PlatformIO is linked for version control.
+2. Copy dedicated, general libraries (not to be modified) to the `libs` folder.
+3. Create `config.h/.cpp` for all volatile and global variables, including pin numbers, with detailed comments.
+4. Create `macros.inc` for debugging macros, delay functions, and other utility macros.
+
+#0 - Getting Ready
+1. Create a basic `main.cpp` file that includes `config.h` and `macros.inc`.
+2. Compile, upload, and verify the basic setup.
+3. Commit to GitHub.
+
+#1 - Timer Framework
+1. Implement the `SWTimers` library for prioritized timer handling.
+2. Use print statements to verify slower timers.
+3. Adapt to `config.h` usage and refactor into Java-like style.
+4. Save version in GitHub.
+
+#2 - First Light
+1. Install `FastLED` and configure 10 LEDs for debugging.
+2. Verify RGB order and LED numbering.
+3. Use LEDs to validate faster `SWTimers`.
+
+#3 - Queue System
+1. Develop a queue system based on existing and new implementations.
+2. Adapt queueing to `config.h` and Java-like style.
+3. Use queues for playlists, events, light shows, and testing with LED colors or print statements.
+4. Refactor into a versatile class or library.
+
+#4 - WiFi
+1. Implement WiFi connectivity to sync date/time once daily.
+2. Retry every hour if no connection is available.
+3. Convert time to local time with daylight saving correction.
+4. Test using print statements.
+5. Refactor into a standalone library.
+
+#5 - SD Reader
+1. Implement SD card functions: `dir`, `del`, `make`, `read`, `write`.
+2. Test by writing timestamps to a file, reading them, and deleting the file.
+3. Refactor into a separate library.
+
+#6 - Simple Audio
+1. Integrate `JellyfishAudio` and adapt to `config.h`.
+2. Implement timer to update global volatile `audioLevel`.
+3. Perform staged testing:
+   - Play MP3 from SD card.
+   - Play MP3 fragment.
+   - Implement fade-in and fade-out.
+   - Use queues to play scheduled fragments.
+   - Demonstrate LED reaction to `audioLevel`.
+
+#7 - First Sensor
+1. Integrate the first I2C sensor.
+2. Copy sensor library to `libs` folder and test it separately.
+3. Adapt to `config.h` and refactor into a standalone library.
+
+#8 - Talking Clock
+1. Improve existing Dutch-speaking clock code.
+2. Integrate with timer and queue systems.
+3. Test functionality with and without interruptions from audio playback.
+
+#9 - RemoteXY
+1. Start with a working library example.
+2. Test receiving and printing data from a smartphone.
+3. Integrate with the main program.
+4. Implement remote control for playing queued audio fragments with fading and volume control.
+
+#10 - Streaming
+1. Connect via WiFi to an audio stream.
+2. Store stream segments as MP3 and play them back.
+3. Queue stored fragments for sensor-triggered playback.
+
+#11 - Light Shows
+1. Build on the queue system for dynamic lighting effects.
+2. Implement wave-function-based effects with parameters like frequency, amplitude, brightness, color range, and direction.
+3. Ensure full interaction with audio, sensors, and timing events.
+4. Enable real-time modification via `RemoteXY`.
+
+#12 - Additional Sensors
+1. Integrate additional I2C sensors as needed.
+2. Follow the same procedure as the first sensor integration.
+3. Ensure compatibility with `config.h` and refactor into separate libraries.
+
+#13 - Remote Control Expansion
+1. Expand `RemoteXY` to control all light show parameters dynamically.
+2. Allow insertion of timed events (e.g., birthdays), stream-URLs, and sensor configurations.
+3. Ensure all previous software stages are structured to accommodate this functionality.
+
+ 
+Jellyfish Project - Mandatory Rules & Promises (Always Check Before Any Action)
+Version: 2025-03-10
+________________________________________
+1. Debugging & Testing Discipline
+✅ Step 1: Always check keywords.txt before debugging.
+🔹 Before using a function, verify if it exists in keywords.txt.
+🔹 If a function is missing, STOP and investigate why.
+🔹 Every check must be explicitly reported:
+"🔎 Checking keywords.txt for relevant functions..."
+🔹 If I forget, Jan will call out:
+❗ "STOP. You skipped Step 1. Restart at keywords.txt check."
+✅ Step 2: Never jump to irrelevant solutions.
+🔹 Fix problems inside this workspace—no unnecessary detours.
+🔹 Keep the existing framework intact—do not rewrite without necessity.
+🔹 Do not remove or replace code unless agreed upon first.
+✅ Step 3: Structured debugging.
+🔹 Debugging must follow a clear, step-by-step approach.
+🔹 Avoid flooding serial output with irrelevant debug prints.
+🔹 If a test fails, analyze the root cause first before making changes.
+________________________________________
+2. Version Control & GitHub Workflow
+✅ Step 4: Always commit stable versions before big changes.
+🔹 Every commit must have a meaningful description.
+🔹 Example: "Refactored DynTimer: Added pause/resume support."
+🔹 No blind commits—only commit functional, structured changes.
+✅ Step 5: Always check if a file was modified before pasting.
+🔹 Do not ask Jan to copy-paste unchanged files.
+🔹 Confirm if a file was modified before requesting an update.
+✅ Step 6: Cleaning up old files must be explicitly confirmed.
+🔹 Do not delete or move files unless Jan explicitly confirms it.
+🔹 Example: "Should I delete SWTimer?" – Jan must say YES before proceeding.
+________________________________________
+3. Code Structure & Expansion Rules
+✅ Step 7: Maintain Java-style modular programming.
+🔹 Use getters/setters instead of direct variable access.
+🔹 Avoid unnecessary #define macros—use class-based logic instead.
+🔹 Code must be designed for future expansion, not short-term fixes.
+✅ Step 8: Timer management must stay dynamic.
+🔹 All timers must be independent, flexible, and dynamically allocated.
+🔹 No fixed timer groups like "slow, fast, ultra-fast"—use a queue/list system.
+🔹 Must allow:
+•	One-time-use timers ✅
+•	Function pointer-based execution ✅
+•	Pause & resume ✅
+✅ Step 9: No unnecessary renaming of classes or folders.
+🔹 The TimerManager was renamed to DynTimer—do not change again.
+🔹 Keep subfolders logical and structured—no random file movements.
+________________________________________
+4. Communication & Workflow
+✅ Step 10: No premature code or action plans.
+🔹 No code before discussion is fully complete.
+🔹 If in discussion mode, DO NOT write code.
+🔹 Jan will explicitly say: "Go ahead" before any action.
+✅ Step 11: All major decisions must be logged for future reference.
+🔹 Important agreements must be explicitly recorded in a reference document.
+🔹 If a decision was made in a previous session, do not override it without confirmation.
+✅ Step 12: Maintain a professional, structured approach.
+🔹 Do not behave like an impulsive coder—stay methodical.
+🔹 No distractions or unnecessary debates—focus on the Jellyfish Project Plan.
+________________________________________
+🚀 FINAL RULE: Jan is the Project Lead
+🔹 Jan decides the priorities—not the AI.
+🔹 If Jan says STOP, I stop immediately.
+🔹 No assumptions—always confirm before making changes.
+
+"We follow structured debugging and avoid quick fixes. No detours. No panic. Check keywords.txt for existing functions before proposing solutions."
+
+https://github.com/drWilms/JellyfishProject
+
+My name is Jan, 73 yo, dutch, former scientist and teacher – now sculpting on an enhances marble jellyfish
+ 
+Jellyfish Project - Development Guidelines
+Version: 2025-03-07
+1. Strategic Development Attitude
+1.1. Structured Debugging & Testing
+•	Debugging should always focus on the framework, not trivial issues like blinking LEDs.
+•	Use clear serial output logging to ensure each test step is properly validated.
+•	Before debugging an issue, always verify assumptions (e.g., check keywords.txt for missing functions before assuming they exist).
+•	Never introduce quick fixes without understanding the root cause.
+1.2. Modular & Expandable Code
+•	Code must be designed for future expansion—do not hardcode behaviors that will be modified later.
+•	Use Java-style class structures with clear get() and set() functions.
+•	**Every module should have a dedicated **keywords.txt for proper function tracking.
+1.3. Version Control Discipline
+•	Always commit a stable version before major changes to prevent unnecessary rollbacks.
+•	Commit messages must be clear and meaningful (e.g., "Refactored Timer System: Implemented HierarchicalTimerManager & fixed SWTimer").
+•	No blind changes or unnecessary rework—every change should have a clear purpose.
+________________________________________
+2. Debugging & Testing Workflow
+2.1. Testing Framework Components
+•	Timer System 
+o	Verify that timers fire at correct intervals.
+o	Ensure expired timers reset properly instead of stopping execution.
+•	Queue System 
+o	Log queue size before dequeuing to verify event processing order.
+o	Ensure queues can handle multiple event types (not just MP3 playback).
+•	LED & Audio Synchronization 
+o	LED effects should run independently of audio playback but still be event-driven.
+o	Future expansions must allow dynamic LED responses to audio levels.
+2.2. Debugging Workflow Rules
+•	If a function is not printing expected values, verify:
+1.	Does the function exist in keywords.txt?
+2.	Are the correct data types being used in Serial logging?
+3.	Is the function actually being called in loop() or a timer event?
+•	Never assume a function exists—check header files before using it.
+•	No hardcoded delays (delay(x)) for testing—use proper timer-based scheduling.
+________________________________________
+3. Next Steps in Development
+3.1. Expanding the Queue System
+•	Implement an event-driven architecture where events can: 
+o	Trigger LED effects
+o	Control audio playback
+o	Manage WiFi reconnections
+•	Implement automatic event generation so the queue never stays empty.
+3.2. Refining the Timer Hierarchy
+•	Ensure different priority levels (slow, fast, ultra-fast timers) work independently.
+•	Implement dynamic timer adjustments for more flexibility.
+3.3. Preparing for WiFi Handling
+•	Move WiFi connection management into a separate module.
+•	Implement automatic reconnection logic with retry timers.
+________________________________________
+Commitment to These Guidelines
+These principles must be strictly followed to maintain project integrity and avoid unnecessary rework. Future development should always align with these structured guidelines.
+
+1️⃣ Version Control Discipline
+✔ Strict GitHub workflow with meaningful commit messages.
+✔ Commit only after functional changes, no quick fixes.
+✔ I will notify Jan when it's time to commit.
+✔ Branches may be used to separate stable and development versions.
+________________________________________
+2️⃣ Strategic Thinking Over Quick Fixes
+✔ Stick to the Jellyfish Project Plan—every change must support long-term scalability.
+✔ No debugging in isolation—debugging should only be done in a way that strengthens the system.
+✔ No shortcuts that introduce temporary fixes while weakening the architecture.
+________________________________________
+3️⃣ Commitment to Framework Integrity
+✔ The Queue & Timer system is the foundation—any new features must integrate without breaking it.
+✔ No unnecessary detours—every modification must fit within the planned expansion structure.
+✔ Small tests within the existing system rather than breaking things down to debug.
+________________________________________
+4️⃣ Communication & Workflow Efficiency
+✔ Discussions must be structured: No random sidetracks into unrelated debugging issues.
+✔ Summaries must be maintained: Before switching contexts, a recap of decisions and changes is mandatory.
+✔ No more lost context: Important agreements must be explicitly written in a reference document.
+✔ No code or action plans before discussion is finished.
+________________________________________
+🚀 Commitment
+This document will be strictly followed in all future development sessions to prevent loss of direction, inefficient debugging, or uncontrolled versioning.
+
+1. Review of the Existing Code for Scalability
+I will focus on three main aspects of scalability: modularity, maintainability, and extensibility.
+Modularity:
+The current framework seems modular by design:
+•	Libraries for each functionality (e.g., timers, LED effects, audio, WiFi, etc.) provide clear separation of concerns.
+•	Your use of config.h and macros.inc for global settings and utility functions keeps things organized.
+Maintainability:
+The existing structure looks manageable for a project of this scale:
+•	Functions are broken down into manageable pieces: SWTimerManager, FifoDeque, etc.
+•	Each library handles a specific task (LED effects, timers, audio), making it easy to debug or extend individual parts of the system.
+Extensibility:
+The existing framework supports extensions:
+•	Adding new sensors, WiFi functionalities, or audio features can be done without major modifications to the core system.
+•	Queues are being used to handle events and data dynamically, so new events or functionalities (e.g., new sensors, new audio features, etc.) can be integrated into the existing event-handling system.
+•	The timer system is already set up for periodic tasks, so adding timers for new functionalities (e.g., WiFi checks, sensor updates) can be done by simply adding them to the SWTimerManager.
+2. How to Implement New Functionality Without Messing Up the Existing Code
+To ensure that new features (e.g., WiFi, sensors, remote control) can be added without disrupting the existing code, here’s an outline of how you can structure future expansions:
+Step-by-Step Process for Adding New Functionality:
+Step 1: Define the New Feature’s Responsibility
+•	For WiFi, the new functionality will need to handle connection retries, status monitoring, and data synchronization (e.g., time sync, data fetch).
+•	For sensors, the feature will need to manage sensor readings, handle sensor events, and possibly trigger other actions based on sensor values.
+Step 2: Create a Separate Library for Each New Feature
+•	WiFi: Create a new library WiFiManager for handling WiFi connectivity. This library should expose a simple API for connecting, checking status, and retrying connections.
+•	Sensors: Create a new library for each sensor or a generic sensor library to handle different types of sensors (temperature, humidity, etc.). Ensure each sensor library uses an event system (similar to queues) to report sensor data or trigger events.
+•	Remote Control: For RemoteXY, create a library that can interface with your existing queue system to send/receive commands to control the Jellyfish project.
+Why this is important: Libraries with a clear responsibility make it easy to manage, replace, or upgrade without affecting the main codebase.
+Step 3: Use the Existing Framework for Integration
+•	Integrate Timers and Queues: For any new periodic tasks (e.g., WiFi status checks, sensor readings), use the existing SWTimer and SWTimerManager.
+•	Add Events to the Queue: For each new feature (WiFi, sensors, remote), create specific events (e.g., WiFiEvent, SensorEvent) and add them to the FifoDeque.
+•	Use a processQueueEvent() function to handle these new events. You can add a new case in the event handler to process events for each new feature.
+Step 4: Implement in the main.cpp
+•	In main.cpp, instantiate your new libraries (e.g., WiFiManager, SensorManager, etc.).
+•	Use existing functions and integrate them into your setup() and loop(). For example, call WiFi check in a periodic timer and process events in the queue.
+•	Use modular design: Don’t add too much logic directly in main.cpp. Delegate functionality to the appropriate library.
+Step 5: Commit Changes Incrementally
+•	After each new feature, commit changes to GitHub with clear commit messages. This will allow you to track the additions and revert to a previous version if anything goes wrong.
+3. Recommendations to Avoid Breaking Existing Code
+To keep the existing codebase safe while expanding, here are some critical best practices:
+1.	Use Version Control: Always use Git to commit your changes regularly and test the new functionality before pushing.
+2.	Keep New Features Modular: Always create separate libraries for new features. This avoids coupling them to existing code and makes it easier to manage updates.
+3.	Leverage Queues: Utilize the event queue system for each new feature. Any event (whether WiFi, sensor, or remote control) should be handled by adding events to the queue and processing them accordingly.
+4.	Test Incrementally: Implement features incrementally and test each addition to ensure compatibility. Use print statements or LEDs for basic verification before committing.
+5.	Refactor When Needed: After completing a set of new features, refactor them into a more efficient structure if needed. Don’t try to make everything perfect upfront—iterate based on feedback and testing.
+ 
+1. Review of the Existing Code for Scalability
+I will focus on three main aspects of scalability: modularity, maintainability, and extensibility.
+Modularity:
+The current framework seems modular by design:
+•	Libraries for each functionality (e.g., timers, LED effects, audio, WiFi, etc.) provide clear separation of concerns.
+•	Your use of config.h and macros.inc for global settings and utility functions keeps things organized.
+Maintainability:
+The existing structure looks manageable for a project of this scale:
+•	Functions are broken down into manageable pieces: SWTimerManager, FifoDeque, etc.
+•	Each library handles a specific task (LED effects, timers, audio), making it easy to debug or extend individual parts of the system.
+Extensibility:
+The existing framework supports extensions:
+•	Adding new sensors, WiFi functionalities, or audio features can be done without major modifications to the core system.
+•	Queues are being used to handle events and data dynamically, so new events or functionalities (e.g., new sensors, new audio features, etc.) can be integrated into the existing event-handling system.
+•	The timer system is already set up for periodic tasks, so adding timers for new functionalities (e.g., WiFi checks, sensor updates) can be done by simply adding them to the SWTimerManager.
+2. How to Implement New Functionality Without Messing Up the Existing Code
+To ensure that new features (e.g., WiFi, sensors, remote control) can be added without disrupting the existing code, here’s an outline of how you can structure future expansions:
+Step-by-Step Process for Adding New Functionality:
+Step 1: Define the New Feature’s Responsibility
+•	For WiFi, the new functionality will need to handle connection retries, status monitoring, and data synchronization (e.g., time sync, data fetch).
+•	For sensors, the feature will need to manage sensor readings, handle sensor events, and possibly trigger other actions based on sensor values.
+Step 2: Create a Separate Library for Each New Feature
+•	WiFi: Create a new library WiFiManager for handling WiFi connectivity. This library should expose a simple API for connecting, checking status, and retrying connections.
+•	Sensors: Create a new library for each sensor or a generic sensor library to handle different types of sensors (temperature, humidity, etc.). Ensure each sensor library uses an event system (similar to queues) to report sensor data or trigger events.
+•	Remote Control: For RemoteXY, create a library that can interface with your existing queue system to send/receive commands to control the Jellyfish project.
+Why this is important: Libraries with a clear responsibility make it easy to manage, replace, or upgrade without affecting the main codebase.
+Step 3: Use the Existing Framework for Integration
+•	Integrate Timers and Queues: For any new periodic tasks (e.g., WiFi status checks, sensor readings), use the existing SWTimer and SWTimerManager.
+•	Add Events to the Queue: For each new feature (WiFi, sensors, remote), create specific events (e.g., WiFiEvent, SensorEvent) and add them to the FifoDeque.
+•	Use a processQueueEvent() function to handle these new events. You can add a new case in the event handler to process events for each new feature.
+Step 4: Implement in the main.cpp
+•	In main.cpp, instantiate your new libraries (e.g., WiFiManager, SensorManager, etc.).
+•	Use existing functions and integrate them into your setup() and loop(). For example, call WiFi check in a periodic timer and process events in the queue.
+•	Use modular design: Don’t add too much logic directly in main.cpp. Delegate functionality to the appropriate library.
+Step 5: Commit Changes Incrementally
+•	After each new feature, commit changes to GitHub with clear commit messages. This will allow you to track the additions and revert to a previous version if anything goes wrong.
+3. Recommendations to Avoid Breaking Existing Code
+To keep the existing codebase safe while expanding, here are some critical best practices:
+1.	Use Version Control: Always use Git to commit your changes regularly and test the new functionality before pushing.
+2.	Keep New Features Modular: Always create separate libraries for new features. This avoids coupling them to existing code and makes it easier to manage updates.
+3.	Leverage Queues: Utilize the event queue system for each new feature. Any event (whether WiFi, sensor, or remote control) should be handled by adding events to the queue and processing them accordingly.
+4.	Test Incrementally: Implement features incrementally and test each addition to ensure compatibility. Use print statements or LEDs for basic verification before committing.
+5.	Refactor When Needed: After completing a set of new features, refactor them into a more efficient structure if needed. Don’t try to make everything perfect upfront—iterate based on feedback and testing.
+
+
