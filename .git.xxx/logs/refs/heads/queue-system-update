@@ -1,0 +1,7 @@
+0000000000000000000000000000000000000000 5ec83a1a9dc05896c5553e965bd02ea3bee60f29 drWilms <janwilms@gmail.com> 1741356960 +0100	branch: Created from HEAD
+5ec83a1a9dc05896c5553e965bd02ea3bee60f29 c140267c8b8c1aaee85adb9087c078996a0884ce drWilms <janwilms@gmail.com> 1741420352 +0100	commit: Unstable version: Restored structure, but non-functional. Pre-refactor commit.
+c140267c8b8c1aaee85adb9087c078996a0884ce 0a0e64831586dc7437178228b9a84136946b5fa4 drWilms <janwilms@gmail.com> 1741423042 +0100	commit: Refactored Timer System: Implemented HierarchicalTimerManager & fixed SWTimer
+0a0e64831586dc7437178228b9a84136946b5fa4 c66a25f772be1a13156fe6ec72569e1885293eaa drWilms <janwilms@gmail.com> 1741425325 +0100	commit: Refactored Queue System & Timer Framework - Debugging Improved
+c66a25f772be1a13156fe6ec72569e1885293eaa c3effd958b319ad898299975e24be3b99d5341b2 drWilms <janwilms@gmail.com> 1741426085 +0100	commit: Verified config structure - no changes needed
+c3effd958b319ad898299975e24be3b99d5341b2 69899a122b559225b6dbbf2cd047cbe54beb8a25 drWilms <janwilms@gmail.com> 1741426679 +0100	commit: Removed all occurrences of 'Hierarchical' from codebase
+69899a122b559225b6dbbf2cd047cbe54beb8a25 22ca4aa6e9cd00e39246fdf2656f63ca4867a069 drWilms <janwilms@gmail.com> 1741434364 +0100	commit: Cleanup: Removed obsolete SWTimer & TimerManager after DynTimer implementation

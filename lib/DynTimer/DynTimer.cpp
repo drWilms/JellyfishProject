@@ -1,61 +1,65 @@
 #include "DynTimer.h"
 #include <Arduino.h>
 
+std::vector<DynTimer*> DynTimer::activeTimers; // Store timers globally
+
 DynTimer::DynTimer(unsigned long intervalMs, std::function<void()> callback, bool repeating)
-    : interval(intervalMs), callback(callback), repeating(repeating), running(true), pauseRemaining(0) {
+    : interval(intervalMs), callback(callback), repeating(repeating), running(true) {
     nextExecution = millis() + interval;
 }
 
-void DynTimer::reset(unsigned long newInterval) {
-    interval = newInterval;
-    nextExecution = millis() + interval;
-}
-
-void DynTimer::start(unsigned long newInterval) {
+void DynTimer::start() {
     running = true;
-    interval = newInterval;
     nextExecution = millis() + interval;
 }
-
 
 void DynTimer::pause() {
     if (running) {
-        pauseRemaining = millis() < nextExecution ? nextExecution - millis() : interval; // Use interval if already overdue
+        pauseRemaining = nextExecution - millis();
         running = false;
-        Serial.printf("[DynTimer] Timer PAUSED at %lu ms (remaining: %lu ms)\n", millis(), pauseRemaining);
+        Serial.printf("Timer PAUSED at %lu ms\n", millis());
     }
 }
-
 
 void DynTimer::resume() {
     if (!running) {
         nextExecution = millis() + pauseRemaining;
         running = true;
-        Serial.printf("[DynTimer] Timer RESUMED at %lu ms, new execution at %lu ms\n", millis(), nextExecution);
+        Serial.printf("Timer RESUMED at %lu ms\n", millis());
     }
 }
 
 bool DynTimer::isReady() {
-    if (!running) {
-        return false;  // Skip execution if paused
-    }
-
+    if (!running) return false;  // Ensure execution stops when paused
     if (millis() >= nextExecution) {
-        Serial.printf("[DynTimer] Timer TRIGGERED at %lu ms\n", millis());
-        if (callback) callback();
+        callback();
         if (repeating) {
-            nextExecution = millis() + interval;
-            Serial.printf("[DynTimer] Timer REPEATING, next execution at %lu ms\n", nextExecution);
+            nextExecution = millis() + interval;  // Reset next execution time
         }
         return true;
     }
     return false;
 }
 
-void DynTimer::update() {
-    for (DynTimer* timer : timersList) {  // Loop through internal timer list
-        if (!timer->running) continue;
-        if (timer->isReady()) timer->execute();
-    }
+void DynTimer::reset() {
+    nextExecution = millis() + interval;
 }
 
+void DynTimer::addTimer(DynTimer* timer) {
+    activeTimers.push_back(timer); // Dynamically add timers
+}
+
+void DynTimer::update() {
+    for (auto it = activeTimers.begin(); it != activeTimers.end();) {
+        DynTimer* timer = *it;
+        if (timer->isReady()) {
+            if (!timer->repeating) {
+                it = activeTimers.erase(it); // Remove non-repeating timers
+            } else {
+                ++it;
+            }
+        } else {
+            ++it;
+        }
+    }
+}
