@@ -1,0 +1,179 @@
+=== JellyfishProject - GPT Update File ===
+Generated on: 2025-03-11 07:30:00
+Version: 1.0
+=======================================
+
+=======================================
+File: lib/DynTimer/DynTimer.h
+=======================================
+// Updated: 2025-03-11 07:30:00
+#ifndef DYNTIMER_H
+#define DYNTIMER_H
+
+#include <Arduino.h>
+#include <functional>
+#include <vector>
+
+class DynTimer {
+private:
+    unsigned long interval;
+    unsigned long nextExecution;
+    unsigned long pauseRemaining = 0;
+    bool repeating;
+    bool running;
+    std::function<void()> callback;
+
+    static std::vector<DynTimer*> activeTimers;
+
+public:
+    DynTimer(unsigned long intervalMs, std::function<void()> callback, bool repeating = true);
+    void start();
+    void pause();
+    void resume();
+    bool isReady();
+    void reset();
+
+    static void addTimer(DynTimer* timer);
+    static void update();
+};
+
+#endif // DYNTIMER_H
+
+=======================================
+File: lib/DynTimer/DynTimer.cpp
+=======================================
+// Updated: 2025-03-11 07:30:00
+#include "DynTimer.h"
+#include <Arduino.h>
+
+std::vector<DynTimer*> DynTimer::activeTimers;
+
+DynTimer::DynTimer(unsigned long intervalMs, std::function<void()> callback, bool repeating)
+    : interval(intervalMs), callback(callback), repeating(repeating), running(true) {
+    nextExecution = millis() + interval;
+}
+
+void DynTimer::start() {
+    running = true;
+    nextExecution = millis() + interval;
+}
+
+void DynTimer::pause() {
+    if (running) {
+        pauseRemaining = nextExecution - millis();
+        running = false;
+        Serial.printf("Timer PAUSED at %lu ms\n", millis());
+    }
+}
+
+void DynTimer::resume() {
+    if (!running) {
+        nextExecution = millis() + pauseRemaining;
+        running = true;
+        Serial.printf("Timer RESUMED at %lu ms\n", millis());
+    }
+}
+
+bool DynTimer::isReady() {
+    if (!running) return false;
+    if (millis() >= nextExecution) {
+        callback();
+        if (repeating) {
+            nextExecution = millis() + interval;
+        }
+        return true;
+    }
+    return false;
+}
+
+void DynTimer::reset() {
+    nextExecution = millis() + interval;
+}
+
+void DynTimer::addTimer(DynTimer* timer) {
+    activeTimers.push_back(timer);
+}
+
+void DynTimer::update() {
+    for (auto it = activeTimers.begin(); it != activeTimers.end();) {
+        DynTimer* timer = *it;
+        if (timer->isReady()) {
+            if (!timer->repeating) {
+                it = activeTimers.erase(it);
+            } else {
+                ++it;
+            }
+        } else {
+            ++it;
+        }
+    }
+}
+
+=======================================
+File: lib/JellyfishLEDs/JellyfishLEDs.h
+=======================================
+// Updated: 2025-03-11 07:30:00
+#ifndef JELLYFISHLEDS_H
+#define JELLYFISHLEDS_H
+
+#include <FastLED.h>
+#include "config.h"
+
+class JellyfishLEDs {
+private:
+    CRGB leds[NUM_LEDS];
+
+public:
+    JellyfishLEDs();
+    void init();
+    void setSingleColor(int index, CRGB color);
+    void runRainbow();
+};
+
+#endif // JELLYFISHLEDS_H
+
+=======================================
+File: lib/JellyfishLEDs/JellyfishLEDs.cpp
+=======================================
+// Updated: 2025-03-11 07:30:00
+#include "JellyfishLEDs.h"
+
+JellyfishLEDs::JellyfishLEDs() {
+    FastLED.addLeds<LED_TYPE, LED_PIN, LED_RGB_ORDER>(leds, NUM_LEDS);
+    FastLED.clear();
+}
+
+void JellyfishLEDs::init() {
+    FastLED.clear();
+    FastLED.show();
+}
+
+void JellyfishLEDs::setSingleColor(int index, CRGB color) {
+    if (index >= 0 && index < NUM_LEDS) {
+        leds[index] = color;
+        FastLED.show();
+    }
+}
+
+void JellyfishLEDs::runRainbow() {
+    static uint8_t hue = 0;
+    for (int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = CHSV(hue + (i * 10), 255, 255);
+    }
+    FastLED.show();
+    hue += 5;
+}
+
+=======================================
+File: lib/JellyfishLEDs/keywords.txt
+=======================================
+// Updated: 2025-03-11 07:30:00
+JellyfishLEDs   KEYWORD1
+setSingleColor  KEYWORD2
+updateLEDs      KEYWORD2
+clearLEDs       KEYWORD2
+
+=======================================
+// END OF GPT UPDATE FILE
+=======================================
+
