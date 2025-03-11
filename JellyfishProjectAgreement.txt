@@ -1,3 +1,6 @@
+https://github.com/drWilms/JellyfishProject.git
+
+
 Jellyfish Development Agreement
 
 Promises by ChatGPT, rules by Jan (Jellyfish)
@@ -16,21 +19,24 @@ This document outlines the structured development process for the Jellyfish proj
 3. Commit to GitHub.
 
 #1 - Timer Framework
-1. Implement the `SWTimers` library for prioritized timer handling.
+1. Implement the `DynTimer` library for prioritized timer handling.
 2. Use print statements to verify slower timers.
 3. Adapt to `config.h` usage and refactor into Java-like style.
 4. Save version in GitHub.
 
-#2 - First Light
+#2 - JellyfishQueue System
+1. Develop the queue system based on existing and new implementations.
+2. Adapt queueing to `config.h` and Java-like style.
+3. Use queues for playlists, events, light shows, and testing with LED colors or print statements.
+4. Refactor into a versatile class or library.
+
+
+#3 - First Light
 1. Install `FastLED` and configure 10 LEDs for debugging.
 2. Verify RGB order and LED numbering.
 3. Use LEDs to validate faster `SWTimers`.
 
-#3 - Queue System
-1. Develop a queue system based on existing and new implementations.
-2. Adapt queueing to `config.h` and Java-like style.
-3. Use queues for playlists, events, light shows, and testing with LED colors or print statements.
-4. Refactor into a versatile class or library.
+
 
 #4 - WiFi
 1. Implement WiFi connectivity to sync date/time once daily.

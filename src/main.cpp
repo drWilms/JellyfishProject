@@ -1,25 +1,40 @@
-#include <Arduino.h>
 #include "DynTimer.h"
-#include "config.h"
+#include "JellyfishQueue.h"
 
-void toggleOnboardLED() {
-    static bool state = false;
-    state = !state;
-    digitalWrite(LED_PIN, state);
-    Serial.printf("Toggling Onboard LED at %lu ms\n", millis());
+JellyfishQueue eventQueue;
+
+// Function prototype
+void onTimer();
+
+// ✅ Corrected: Timer must update in loop()
+DynTimer timer(500, onTimer, true);  
+
+void onTimer() {
+    Serial.println("Timer fired!");
+    eventQueue.enqueue("TIMER_EXPIRED"); // ✅ Always enqueue the event
 }
-
-DynTimer ledTimer(1000, toggleOnboardLED, true); // Create LED timer
 
 void setup() {
     Serial.begin(115200);
-    Serial.println("DynTimer Multi-Timer Test Started");
+    Serial.println("=== Timer Queue Debug Start ===");
 
-    pinMode(LED_PIN, OUTPUT);
-
-    DynTimer::addTimer(&ledTimer); // Register LED timer
+    Serial.println("Starting timer...");
+    timer.start(); // ✅ Start the repeating timer
 }
 
 void loop() {
-    DynTimer::update(); // Properly check & execute timers
+    // ✅ Fix: Ensure the timer actually fires
+    timer.update();  
+
+    if (!eventQueue.isEmpty()) {
+        std::string event = eventQueue.dequeue();
+        Serial.printf("Processing event: %s\n", event.c_str());
+
+        if (event == "TIMER_EXPIRED") {
+            Serial.println("Event recognized: TIMER_EXPIRED");
+            // ✅ No need to restart the timer—it’s already repeating
+        }
+    }
+
+    delay(10); // ✅ Prevents excessive Serial output
 }

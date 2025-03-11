@@ -1,32 +1,47 @@
-Merged JellyfishProject Code (Generated on 2025-03-11_07-14) 
+Merged JellyfishProject Code (Generated on 2025-03-11_23-00) 
 ===================================================== 
 ======================================= 
 File: src\main.cpp 
 ======================================= 
-#include <Arduino.h>
 #include "DynTimer.h"
-#include "config.h"
+#include "JellyfishQueue.h"
 
-void toggleOnboardLED() {
-    static bool state = false;
-    state = !state;
-    digitalWrite(LED_PIN, state);
-    Serial.printf("Toggling Onboard LED at %lu ms\n", millis());
+JellyfishQueue eventQueue;
+
+// Function prototype
+void onTimer();
+
+// ✅ Corrected: Timer must update in loop()
+DynTimer timer(500, onTimer, true);  
+
+void onTimer() {
+    Serial.println("Timer fired!");
+    eventQueue.enqueue("TIMER_EXPIRED"); // ✅ Always enqueue the event
 }
-
-DynTimer ledTimer(1000, toggleOnboardLED, true); // Create LED timer
 
 void setup() {
     Serial.begin(115200);
-    Serial.println("DynTimer Multi-Timer Test Started");
+    Serial.println("=== Timer Queue Debug Start ===");
 
-    pinMode(LED_PIN, OUTPUT);
-
-    DynTimer::addTimer(&ledTimer); // Register LED timer
+    Serial.println("Starting timer...");
+    timer.start(); // ✅ Start the repeating timer
 }
 
 void loop() {
-    DynTimer::update(); // Properly check & execute timers
+    // ✅ Fix: Ensure the timer actually fires
+    timer.update();  
+
+    if (!eventQueue.isEmpty()) {
+        std::string event = eventQueue.dequeue();
+        Serial.printf("Processing event: %s\n", event.c_str());
+
+        if (event == "TIMER_EXPIRED") {
+            Serial.println("Event recognized: TIMER_EXPIRED");
+            // ✅ No need to restart the timer—it’s already repeating
+        }
+    }
+
+    delay(10); // ✅ Prevents excessive Serial output
 }
  
 ======================================= 
@@ -109,23 +124,26 @@ class DynTimer {
 private:
     unsigned long interval;
     unsigned long nextExecution;
-    unsigned long pauseRemaining = 0;
     bool repeating;
     bool running;
     std::function<void()> callback;
-
-    static std::vector<DynTimer*> activeTimers; // Stores all timers
+    static std::vector<DynTimer*> activeTimers;
 
 public:
     DynTimer(unsigned long intervalMs, std::function<void()> callback, bool repeating = true);
+
     void start();
-    void pause();
-    void resume();
+    void stop();   // 🛑 Nieuw: Stop een lopende timer
+    void pause();  // ⏸ Nieuw: Pauzeer een timer zonder te stoppen
+    void resume(); // ▶️ Nieuw: Hervat een gepauzeerde timer
     bool isReady();
     void reset();
-
-    static void addTimer(DynTimer* timer); // Restore this function
-    static void update(); // Fix update function to work with stored timers
+    void update();
+    bool isRunning() const { return running; }
+    unsigned long getNextExecution() const { return nextExecution; }
+    
+    static void addTimer(DynTimer* timer);
+    static void updateAll(); // 🔄 Update alle actieve timers
 };
 
 #endif // DYNTIMER_H
@@ -136,66 +154,68 @@ File: lib\DynTimer\DynTimer.cpp
 #include "DynTimer.h"
 #include <Arduino.h>
 
-std::vector<DynTimer*> DynTimer::activeTimers; // Store timers globally
+std::vector<DynTimer*> DynTimer::activeTimers;
 
 DynTimer::DynTimer(unsigned long intervalMs, std::function<void()> callback, bool repeating)
-    : interval(intervalMs), callback(callback), repeating(repeating), running(true) {
-    nextExecution = millis() + interval;
-}
+    : interval(intervalMs), callback(callback), repeating(repeating), running(false), nextExecution(0) {}
 
 void DynTimer::start() {
     running = true;
     nextExecution = millis() + interval;
+    Serial.printf("[Timer] Started, next expiration: %lu\n", nextExecution);
+}
+
+void DynTimer::stop() {
+    running = false;
+    Serial.println("[Timer] Stopped.");
 }
 
 void DynTimer::pause() {
     if (running) {
-        pauseRemaining = nextExecution - millis();
         running = false;
-        Serial.printf("Timer PAUSED at %lu ms\n", millis());
+        Serial.println("[Timer] Paused.");
     }
 }
 
 void DynTimer::resume() {
     if (!running) {
-        nextExecution = millis() + pauseRemaining;
         running = true;
-        Serial.printf("Timer RESUMED at %lu ms\n", millis());
+        nextExecution = millis() + interval;
+        Serial.println("[Timer] Resumed.");
     }
 }
 
 bool DynTimer::isReady() {
-    if (!running) return false;  // Ensure execution stops when paused
-    if (millis() >= nextExecution) {
-        callback();
-        if (repeating) {
-            nextExecution = millis() + interval;  // Reset next execution time
-        }
-        return true;
-    }
-    return false;
+    if (!running) return false;
+    return millis() >= nextExecution;
 }
 
 void DynTimer::reset() {
     nextExecution = millis() + interval;
 }
 
-void DynTimer::addTimer(DynTimer* timer) {
-    activeTimers.push_back(timer); // Dynamically add timers
+void DynTimer::update() {
+    if (isReady()) {
+        callback();
+        if (repeating) {
+            reset();
+        } else {
+            stop();
+        }
+    }
 }
 
-void DynTimer::update() {
+void DynTimer::updateAll() {
     for (auto it = activeTimers.begin(); it != activeTimers.end();) {
         DynTimer* timer = *it;
         if (timer->isReady()) {
+            timer->update();
             if (!timer->repeating) {
-                it = activeTimers.erase(it); // Remove non-repeating timers
-            } else {
-                ++it;
+                it = activeTimers.erase(it);
+                continue;
             }
-        } else {
-            ++it;
         }
+        ++it;
     }
 }
  
@@ -218,63 +238,62 @@ Library: lib\JellyfishLEDs
 ======================================= 
 File: lib\JellyfishLEDs\JellyfishLEDs.h 
 ======================================= 
-#ifndef JELLYFISHLEDS_H
-#define JELLYFISHLEDS_H
-
-#include <FastLED.h>
-#include "config.h"
-
-class JellyfishLEDs {
-private:
-    CRGB leds[NUM_LEDS];
-
-public:
-    JellyfishLEDs();
-    void init();
-    void setSingleColor(int index, CRGB color);
-    void runRainbow();
-};
-
-#endif // JELLYFISHLEDS_H
+ 
+// Updated: 2025-03-11 07:30:00 
+#ifndef JELLYFISHLEDS_H 
+#define JELLYFISHLEDS_H 
+#include <FastLED.h> 
+#include "config.h" 
+class JellyfishLEDs { 
+private: 
+CRGB leds[NUM_LEDS]; 
+public: 
+JellyfishLEDs(); 
+void init(); 
+void setSingleColor(int index, CRGB color); 
+void runRainbow(); 
+}; 
+#endif // JELLYFISHLEDS_H 
  
 ======================================= 
 File: lib\JellyfishLEDs\JellyfishLEDs.cpp 
 ======================================= 
-#include "JellyfishLEDs.h"
-
-JellyfishLEDs::JellyfishLEDs() {
-    FastLED.addLeds<LED_TYPE, LED_PIN, LED_RGB_ORDER>(leds, NUM_LEDS);
-    FastLED.clear();
-}
-
-void JellyfishLEDs::init() {
-    FastLED.clear();
-    FastLED.show();
-}
-
-void JellyfishLEDs::setSingleColor(int index, CRGB color) {
-    if (index >= 0 && index < NUM_LEDS) {
-        leds[index] = color;
-        FastLED.show();
-    }
-}
-
-void JellyfishLEDs::runRainbow() {
-    static uint8_t hue = 0;
-    for (int i = 0; i < NUM_LEDS; i++) {
-        leds[i] = CHSV(hue + (i * 10), 255, 255);
-    }
-    FastLED.show();
-    hue += 5;
+ 
+// Updated: 2025-03-11 07:30:00 
+#include "JellyfishLEDs.h" 
+JellyfishLEDs::JellyfishLEDs() { 
+FastLED.addLeds<LED_TYPE, LED_PIN, LED_RGB_ORDER>(leds, NUM_LEDS); 
+FastLED.clear(); 
 } 
+void JellyfishLEDs::init() { 
+FastLED.clear(); 
+FastLED.show(); 
+} 
+void JellyfishLEDs::setSingleColor(int index, CRGB color) { 
+if (index >= 0 && index < NUM_LEDS) { 
+leds[index] = color; 
+FastLED.show(); 
+} 
+} 
+void JellyfishLEDs::runRainbow() { 
+static uint8_t hue = 0; 
+for (int i = 0; i < NUM_LEDS; i++) { 
+leds[i] = CHSV(hue + (i * 10), 255, 255); 
+} 
+FastLED.show(); 
+hue += 5; 
+} 
+ 
 ======================================= 
 File: lib\JellyfishLEDs\keywords.txt 
 ======================================= 
-# Keywords for JellyfishLEDs
-JellyfishLEDs   KEYWORD1
-setSingleColor  KEYWORD2
-updateLEDs      KEYWORD2
-clearLEDs       KEYWORD2
+ 
+// Updated: 2025-03-11 07:30:00 
+JellyfishLEDs   KEYWORD1 
+setSingleColor  KEYWORD2 
+updateLEDs      KEYWORD2 
+clearLEDs       KEYWORD2 
+// END OF GPT UPDATE FILE 
  
 ======================================= 
 Library: lib\JellyfishQueue 
