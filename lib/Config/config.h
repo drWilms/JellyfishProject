@@ -24,13 +24,24 @@
 #define LED_RGB_ORDER GRB  // Define RGB order
 
 // === Timer Intervals ===
-#define SLOW_TIMER_INTERVAL   1000  // 1 second and above
-#define FAST_TIMER_INTERVAL    250  // 100ms - 999ms
-#define ULTRAFAST_TIMER_INTERVAL 50 // Below 100ms
+//#define SLOW_TIMER_INTERVAL   1000  // 1 second and above
+//#define FAST_TIMER_INTERVAL    250  // 100ms - 999ms
+//#define ULTRAFAST_TIMER_INTERVAL 50 // Below 100ms
 
 // === Global Variables ===
 extern int audioLevel;   // Stores real-time audio level
 extern bool silentMode;  // True if LEDs should remain off
 extern int brightness;   // LED brightness level
+
+
+
+#define SDA           21
+#define SCL           22
+#define SD_CS          5
+#define SPI_MOSI      23
+#define SPI_MISO      19
+#define SPI_SCK       18
+
+
 
 #endif  // CONFIG_H

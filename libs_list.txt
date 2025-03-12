@@ -3,3 +3,4 @@ DynTimer
 JellyfishLEDs
 JellyfishQueue
 JellyfishAudio
+WiFiManager

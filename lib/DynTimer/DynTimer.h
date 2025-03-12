@@ -11,24 +11,36 @@ private:
     unsigned long nextExecution;
     bool repeating;
     bool running;
+    bool debugEnabled;
     std::function<void()> callback;
-    static std::vector<DynTimer*> activeTimers;
 
 public:
     DynTimer(unsigned long intervalMs, std::function<void()> callback, bool repeating = true);
-
     void start();
-    void stop();   // 🛑 Nieuw: Stop een lopende timer
-    void pause();  // ⏸ Nieuw: Pauzeer een timer zonder te stoppen
-    void resume(); // ▶️ Nieuw: Hervat een gepauzeerde timer
+    void stop();
+    void pause();
+    void resume();
     bool isReady();
     void reset();
     void update();
+    void setInterval(unsigned long newInterval);  // ✅ New function
+
     bool isRunning() const { return running; }
     unsigned long getNextExecution() const { return nextExecution; }
-    
-    static void addTimer(DynTimer* timer);
-    static void updateAll(); // 🔄 Update alle actieve timers
+    void setDebug(bool enable);
+    bool getDebug() const;
+};
+
+class TimerManager {
+private:
+    std::vector<DynTimer*> timers;
+
+public:
+    int addTimer(unsigned long interval, std::function<void()> callback, bool repeating = true);
+    void removeTimer(int index);
+    void updateAll();
+    void stopAll();
+    DynTimer* getTimer(int index);  // ✅ New function
 };
 
 #endif // DYNTIMER_H

@@ -1,0 +1,537 @@
+Merged JellyfishProject Code (Generated on 2025-03-12_07-56) 
+===================================================== 
+======================================= 
+File: src\main.cpp 
+======================================= 
+#include "DynTimer.h"
+#include "JellyfishQueue.h"
+
+/**
+ * ======================== Demo2 Specification ========================
+ * 
+ * Main Print Cycle (":" and ";"):
+ * - Every 1 second, print ":" 10 times.
+ * - Then switch to ";" for 9 times.
+ * - Then switch back to ":" for 8 times.
+ * - Continue decreasing until 0.
+ * - At 0, switch to "." for 10 times, "," for 7 times, following the same decreasing pattern.
+ * - This full cycle repeats 7 times.
+ * 
+ * Secondary Print Cycle ("*" and "#"):
+ * - Every 45 seconds, print "*" for 5 minutes.
+ * - Then switch "*" → "#" for 4 minutes.
+ * - Then switch back to "*" for 3 minutes.
+ * - This full cycle repeats 13 times.
+ * 
+ * Synchronization:
+ * - "." and "," follow the same decrementing pattern as ":" and ";".
+ * - "*" and "#" operate independently of the ":" and ";" cycle.
+ * 
+ * Queue Management:
+ * - All printed characters will be queued in JellyfishQueue before printing.
+ * 
+ * End Condition:
+ * - The program stops after 11 minutes.
+ */
+
+JellyfishQueue eventQueue;
+
+// Print Cycle Control Variables
+char currentChar = ':';  // Initial character
+int repeatCount = 10;     // Initial repetition count
+int mainCycleRepeats = 7; // Number of full cycles
+
+// Symbol Print Cycle Control Variables
+char symbolChar = '*';    // Initial symbol
+int symbolRepeatCount = 5; // Initial repeat duration in minutes
+int symbolCycleRepeats = 13; // Number of full symbol cycles
+
+// Time Control
+unsigned long programStartTime;
+const unsigned long programDuration = 11 * 60 * 1000; // 11 minutes in milliseconds
+
+// Function prototypes
+void onMainCycle();
+void onSymbolCycle();
+void processQueue();
+
+// Timers
+DynTimer mainCycleTimer(1000, onMainCycle, true);    // Every second
+DynTimer symbolCycleTimer(45000, onSymbolCycle, true); // Every 45 seconds
+DynTimer queueProcessor(10, processQueue, true);    // Process queue every 10ms
+
+void onMainCycle() {
+    if (mainCycleRepeats == 0) return; // Stop if all cycles are done
+
+    eventQueue.enqueue(std::string(1, currentChar)); // Queue the current character
+
+    repeatCount--; // Reduce repetition count
+    if (repeatCount == 0) { 
+        // Switch character when reaching 0
+        switch (currentChar) {
+            case ':': currentChar = ';'; repeatCount = 9; break;
+            case ';': currentChar = ':'; repeatCount = 8; break;
+            case '.': currentChar = ','; repeatCount = 7; break;
+            case ',': currentChar = '.'; repeatCount = 10; break;
+        }
+
+        // If we finished all patterns, reduce main cycle count
+        if (repeatCount == 10 && currentChar == '.') {
+            mainCycleRepeats--;
+        }
+    }
+}
+
+void onSymbolCycle() {
+    if (symbolCycleRepeats == 0) return; // Stop if all cycles are done
+
+    eventQueue.enqueue(std::string(1, symbolChar) + "\n"); // ✅ Symbols now print with newline
+
+    symbolRepeatCount--; // Reduce repetition count
+    if (symbolRepeatCount == 0) { 
+        // Switch symbol when reaching 0
+        switch (symbolChar) {
+            case '*': symbolChar = '#'; symbolRepeatCount = 4; break;
+            case '#': symbolChar = '*'; symbolRepeatCount = 3; break;
+        }
+
+        // If we finished all patterns, reduce symbol cycle count
+        if (symbolRepeatCount == 5 && symbolChar == '*') {
+            symbolCycleRepeats--;
+        }
+    }
+}
+
+void processQueue() {
+    if (!eventQueue.isEmpty()) {
+        std::string event = eventQueue.dequeue();
+        Serial.print(event.c_str()); // ✅ Main cycle prints inline, symbols print with newline
+    }
+
+    // Stop program after 11 minutes
+    if (millis() - programStartTime >= programDuration) {
+        Serial.println("\n=== Program Ended ===");
+        mainCycleTimer.stop();
+        symbolCycleTimer.stop();
+        queueProcessor.stop();
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+    Serial.println("=== Demo2 Start ===");
+
+    programStartTime = millis(); // Start time tracking
+
+    mainCycleTimer.start();
+    symbolCycleTimer.start();
+    queueProcessor.start();
+}
+
+void loop() {
+    mainCycleTimer.update();
+    symbolCycleTimer.update();
+    queueProcessor.update();
+}
+ 
+======================================= 
+Library: lib\config 
+======================================= 
+======================================= 
+File: lib\config\config.h 
+======================================= 
+/**
+ * Jellyfish Project - Fully Restored Codebase with Timer Hierarchy
+ * Version: 2025-03-07
+ */
+
+// ========================= config.h =========================
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#include <Arduino.h>
+#include "config_secrets.h"
+
+// === Pin Definitions ===
+#define LED_PIN         2  // Built-in LED
+#define PIN_LED         4  // LED Data Out
+#define PIN_I2S_DOUT   14  // I2S Data
+#define PIN_I2S_BCLK   13  // I2S Bit Clock
+#define PIN_I2S_LRC    15  // I2S Left/Right Clock
+#define PIN_SD_CS       5  // SD Card Chip Select
+
+// === LED Configuration ===
+#define NUM_LEDS 10
+#define LED_TYPE WS2812    // Define LED type
+#define LED_RGB_ORDER GRB  // Define RGB order
+
+// === Timer Intervals ===
+#define SLOW_TIMER_INTERVAL   1000  // 1 second and above
+#define FAST_TIMER_INTERVAL    250  // 100ms - 999ms
+#define ULTRAFAST_TIMER_INTERVAL 50 // Below 100ms
+
+// === Global Variables ===
+extern int audioLevel;   // Stores real-time audio level
+extern bool silentMode;  // True if LEDs should remain off
+extern int brightness;   // LED brightness level
+
+#endif  // CONFIG_H 
+======================================= 
+File: lib\config\config_secrets.h 
+======================================= 
+#ifndef CONFIG_SECRETS_H
+#define CONFIG_SECRETS_H
+
+#define WIFI_SSID "keijebijter"
+#define WIFI_PASSWORD "Helmondia'55"
+
+#endif // CONFIG_SECRETS_H
+ 
+======================================= 
+File: lib\config\config.cpp 
+======================================= 
+#include "config.h"
+
+// === Global Variables ===
+int audioLevel = 0;
+bool silentMode = false;
+int brightness = 150;
+ 
+======================================= 
+Library: lib\DynTimer 
+======================================= 
+======================================= 
+File: lib\DynTimer\DynTimer.h 
+======================================= 
+#ifndef DYNTIMER_H
+#define DYNTIMER_H
+
+#include <Arduino.h>
+#include <functional>
+#include <vector>
+
+class DynTimer {
+private:
+    unsigned long interval;
+    unsigned long nextExecution;
+    bool repeating;
+    bool running;
+    bool DebugDynTimer;  // Debug flag
+    std::function<void()> callback;
+    static std::vector<DynTimer*> activeTimers;
+
+public:
+    DynTimer(unsigned long intervalMs, std::function<void()> callback, bool repeating = true);
+
+    void start();
+    void stop();
+    void pause();
+    void resume();
+    bool isReady();
+    void reset();
+    void update();
+    bool isRunning() const { return running; }
+    unsigned long getNextExecution() const { return nextExecution; }
+
+    static void addTimer(DynTimer* timer);
+    static void updateAll();
+
+    // Debug control
+    void setDebug(bool enable);
+    bool getDebug() const;
+};
+
+#endif // DYNTIMER_H
+ 
+======================================= 
+File: lib\DynTimer\DynTimer.cpp 
+======================================= 
+#include "DynTimer.h"
+#include <Arduino.h>
+
+std::vector<DynTimer*> DynTimer::activeTimers;
+
+DynTimer::DynTimer(unsigned long intervalMs, std::function<void()> callback, bool repeating)
+    : interval(intervalMs), callback(callback), repeating(repeating), running(false), nextExecution(0), DebugDynTimer(false) {}
+
+void DynTimer::start() {
+    running = true;
+    nextExecution = millis() + interval;
+    if (DebugDynTimer) {
+        Serial.printf("[DynTimer] Started, next expiration: %lu\n", nextExecution);
+    }
+}
+
+void DynTimer::stop() {
+    running = false;
+    if (DebugDynTimer) {
+        Serial.println("[DynTimer] Stopped.");
+    }
+}
+
+void DynTimer::pause() {
+    if (running) {
+        running = false;
+        if (DebugDynTimer) {
+            Serial.println("[DynTimer] Paused.");
+        }
+    }
+}
+
+void DynTimer::resume() {
+    if (!running) {
+        running = true;
+        nextExecution = millis() + interval;
+        if (DebugDynTimer) {
+            Serial.println("[DynTimer] Resumed.");
+        }
+    }
+}
+
+bool DynTimer::isReady() {
+    if (!running) return false;
+    return millis() >= nextExecution;
+}
+
+void DynTimer::reset() {
+    nextExecution = millis() + interval;
+    if (DebugDynTimer) {
+        Serial.printf("[DynTimer] Reset, next expiration: %lu\n", nextExecution);
+    }
+}
+
+void DynTimer::update() {
+    if (isReady()) {
+        if (DebugDynTimer) {
+            Serial.println("[DynTimer] Timer expired, executing callback.");
+        }
+        callback();
+        if (repeating) {
+            reset();
+        } else {
+            stop();
+        }
+    }
+}
+
+void DynTimer::updateAll() {
+    for (auto it = activeTimers.begin(); it != activeTimers.end();) {
+        DynTimer* timer = *it;
+        if (timer->isReady()) {
+            timer->update();
+            if (!timer->repeating) {
+                it = activeTimers.erase(it);
+                continue;
+            }
+        }
+        ++it;
+    }
+}
+
+// Debug control
+void DynTimer::setDebug(bool enable) {
+    DebugDynTimer = enable;
+    Serial.printf("[DynTimer] Debug mode %s.\n", DebugDynTimer ? "enabled" : "disabled");
+}
+
+bool DynTimer::getDebug() const {
+    return DebugDynTimer;
+}
+ 
+======================================= 
+File: lib\DynTimer\keywords.txt 
+======================================= 
+DynTimer     KEYWORD1
+start        KEYWORD2
+isReady      KEYWORD2
+reset        KEYWORD2
+pause        KEYWORD2
+resume       KEYWORD2
+addTimer     KEYWORD2
+update       KEYWORD2
+isRunning    FUNCTION
+ 
+======================================= 
+Library: lib\JellyfishLEDs 
+======================================= 
+======================================= 
+File: lib\JellyfishLEDs\JellyfishLEDs.h 
+======================================= 
+ 
+// Updated: 2025-03-11 07:30:00 
+#ifndef JELLYFISHLEDS_H 
+#define JELLYFISHLEDS_H 
+#include <FastLED.h> 
+#include "config.h" 
+class JellyfishLEDs { 
+private: 
+CRGB leds[NUM_LEDS]; 
+public: 
+JellyfishLEDs(); 
+void init(); 
+void setSingleColor(int index, CRGB color); 
+void runRainbow(); 
+}; 
+#endif // JELLYFISHLEDS_H 
+ 
+======================================= 
+File: lib\JellyfishLEDs\JellyfishLEDs.cpp 
+======================================= 
+ 
+// Updated: 2025-03-11 07:30:00 
+#include "JellyfishLEDs.h" 
+JellyfishLEDs::JellyfishLEDs() { 
+FastLED.addLeds<LED_TYPE, LED_PIN, LED_RGB_ORDER>(leds, NUM_LEDS); 
+FastLED.clear(); 
+} 
+void JellyfishLEDs::init() { 
+FastLED.clear(); 
+FastLED.show(); 
+} 
+void JellyfishLEDs::setSingleColor(int index, CRGB color) { 
+if (index >= 0 && index < NUM_LEDS) { 
+leds[index] = color; 
+FastLED.show(); 
+} 
+} 
+void JellyfishLEDs::runRainbow() { 
+static uint8_t hue = 0; 
+for (int i = 0; i < NUM_LEDS; i++) { 
+leds[i] = CHSV(hue + (i * 10), 255, 255); 
+} 
+FastLED.show(); 
+hue += 5; 
+} 
+ 
+======================================= 
+File: lib\JellyfishLEDs\keywords.txt 
+======================================= 
+ 
+// Updated: 2025-03-11 07:30:00 
+JellyfishLEDs   KEYWORD1 
+setSingleColor  KEYWORD2 
+updateLEDs      KEYWORD2 
+clearLEDs       KEYWORD2 
+// END OF GPT UPDATE FILE 
+ 
+======================================= 
+Library: lib\JellyfishQueue 
+======================================= 
+======================================= 
+File: lib\JellyfishQueue\JellyfishQueue.h 
+======================================= 
+#ifndef JELLYFISHQUEUE_H
+#define JELLYFISHQUEUE_H
+
+#include <queue>
+#include <string>
+#include <Arduino.h>
+
+class JellyfishQueue {
+private:
+    std::queue<std::string> queue;
+    bool DebugJellyfishQueue;  // Debug flag
+
+public:
+    JellyfishQueue();
+
+    void enqueue(const std::string& item);
+    std::string dequeue();
+    std::string peek() const;
+    bool isEmpty() const;
+    void clear();
+    size_t size() const;
+
+    // Debug control
+    void setDebug(bool enable);
+    bool getDebug() const;
+};
+
+#endif // JELLYFISHQUEUE_H
+ 
+======================================= 
+File: lib\JellyfishQueue\JellyfishQueue.cpp 
+======================================= 
+#include "JellyfishQueue.h"
+
+JellyfishQueue::JellyfishQueue() : DebugJellyfishQueue(false) {}
+
+void JellyfishQueue::enqueue(const std::string& item) {
+    queue.push(item);
+    if (DebugJellyfishQueue) {
+        Serial.printf("[JellyfishQueue] Enqueued: %s at %lu ms\n", item.c_str(), millis());
+    }
+}
+
+std::string JellyfishQueue::dequeue() {
+    if (queue.empty()) {
+        if (DebugJellyfishQueue) {
+            Serial.printf("[JellyfishQueue] Dequeue attempted on empty queue at %lu ms\n", millis());
+        }
+        return "";
+    }
+    std::string item = queue.front();
+    queue.pop();
+    if (DebugJellyfishQueue) {
+        Serial.printf("[JellyfishQueue] Dequeued: %s at %lu ms\n", item.c_str(), millis());
+    }
+    return item;
+}
+
+std::string JellyfishQueue::peek() const {
+    if (queue.empty()) {
+        if (DebugJellyfishQueue) {
+            Serial.printf("[JellyfishQueue] Peek attempted on empty queue at %lu ms\n", millis());
+        }
+        return "";
+    }
+    if (DebugJellyfishQueue) {
+        Serial.printf("[JellyfishQueue] Peek: %s at %lu ms\n", queue.front().c_str(), millis());
+    }
+    return queue.front();
+}
+
+bool JellyfishQueue::isEmpty() const {
+    if (DebugJellyfishQueue) {
+        Serial.printf("[JellyfishQueue] isEmpty check: %s at %lu ms\n", queue.empty() ? "true" : "false", millis());
+    }
+    return queue.empty();
+}
+
+void JellyfishQueue::clear() {
+    while (!queue.empty()) {
+        queue.pop();
+    }
+    if (DebugJellyfishQueue) {
+        Serial.printf("[JellyfishQueue] Cleared at %lu ms\n", millis());
+    }
+}
+
+size_t JellyfishQueue::size() const {
+    if (DebugJellyfishQueue) {
+        Serial.printf("[JellyfishQueue] Size check: %lu at %lu ms\n", queue.size(), millis());
+    }
+    return queue.size();
+}
+
+// Debug control
+void JellyfishQueue::setDebug(bool enable) {
+    DebugJellyfishQueue = enable;
+    Serial.printf("[JellyfishQueue] Debug mode %s at %lu ms\n", DebugJellyfishQueue ? "enabled" : "disabled", millis());
+}
+
+bool JellyfishQueue::getDebug() const {
+    return DebugJellyfishQueue;
+}
+ 
+======================================= 
+File: lib\JellyfishQueue\keywords.txt 
+======================================= 
+# Keywords for JellyfishQueue
+JellyfishQueue  KEYWORD1
+enqueue         KEYWORD2
+dequeue         KEYWORD2
+isEmpty         KEYWORD2
+clear           KEYWORD2
+ 
+WARNING: lib\JellyfishAudio not found Skipping... 

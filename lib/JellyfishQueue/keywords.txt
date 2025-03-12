@@ -1,6 +1,11 @@
-# Keywords for JellyfishQueue
+# JellyfishQueue Keywords
+# Version: 2025-03-12
+
 JellyfishQueue  KEYWORD1
 enqueue         KEYWORD2
 dequeue         KEYWORD2
 isEmpty         KEYWORD2
 clear           KEYWORD2
+processQueue    KEYWORD2
+setDebug        KEYWORD2
+getDebug        KEYWORD2
