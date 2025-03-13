@@ -10,6 +10,8 @@
   #define LOG(...)
 #endif
 
+#define PPL(txt) Serial.println(txt)
+
 // === Utility Macros ===
 #define WAIT(x) FastLED.delay(x)
 

@@ -13,7 +13,9 @@ public:
 
     JellyfishLEDs();
     void setSingleColor(int index, CRGB color);
-    void updateLEDs();
+    void updateLEDs(int audioLevel);
+    void silentMode();
+
 };
 
 #endif

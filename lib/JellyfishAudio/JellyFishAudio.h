@@ -5,12 +5,49 @@
 #include <SD.h>
 #include <AudioGeneratorMP3.h>
 #include <AudioFileSourceSD.h>
-#include "AudioOutputI2SWithLevel.h"
+#include <AudioOutputI2S.h>
 #include "JellyfishLEDs.h"
-#include "Debug.h"
 #include "config.h"
 
-// Playlist structure
+// =========================
+// Embedded AudioOutputI2SWithLevel Class
+// =========================
+class AudioOutputI2SWithLevel : public AudioOutputI2S {
+public:
+    AudioOutputI2SWithLevel() : audioLevel(0), currentGain(1.0f) {}
+
+    virtual bool SetGain(float gain) override {
+        currentGain = gain;
+        return AudioOutputI2S::SetGain(gain);
+    }
+
+    float getCurrentGain() const {
+        return currentGain;
+    }
+
+    virtual bool ConsumeSample(int16_t sample[2]) override {
+        sample[0] = (int16_t)(sample[0] * currentGain);
+        sample[1] = (int16_t)(sample[1] * currentGain);
+
+        int16_t left = abs(sample[0]);
+        int16_t right = abs(sample[1]);
+        audioLevel = (left + right) / 2;
+
+        return AudioOutputI2S::ConsumeSample(sample);
+    }
+
+    int getAudioLevel() {
+        return audioLevel;
+    }
+
+private:
+    int audioLevel;
+    float currentGain;
+};
+
+// =========================
+// JellyfishAudio Class
+// =========================
 struct PlaylistEntry {
     const char* filename;
     unsigned long startSec;
@@ -31,13 +68,11 @@ public:
     bool isPlaying();
 
 private:
-    // Audio Configuration
     uint8_t _csPin, _bclkPin, _lrcPin, _doutPin;
     AudioFileSourceSD* file;
     AudioGeneratorMP3* mp3;
     AudioOutputI2SWithLevel* audioOutput;
 
-    // Fragment and Playlist Management
     unsigned long fragmentStartTime, fragmentDuration;
     bool playingFragment;
     JellyfishLEDs* leds;
@@ -47,4 +82,4 @@ private:
     bool isFadingOut;
 };
 
-#endif
+#endif // JELLYFISH_AUDIO_H

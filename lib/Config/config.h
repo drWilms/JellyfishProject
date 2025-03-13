@@ -12,7 +12,8 @@
 
 // === Pin Definitions ===
 #define LED_PIN         2  // Built-in LED
-#define PIN_LED         4  // LED Data Out
+#define PIN_RGB         4  // LED Data Out
+#define PIN_LED         PIN_RGB
 #define PIN_I2S_DOUT   14  // I2S Data
 #define PIN_I2S_BCLK   13  // I2S Bit Clock
 #define PIN_I2S_LRC    15  // I2S Left/Right Clock
@@ -22,6 +23,9 @@
 #define NUM_LEDS 10
 #define LED_TYPE WS2812    // Define LED type
 #define LED_RGB_ORDER GRB  // Define RGB order
+
+#define MAX_MILLIAMPS 2000
+#define VOLTAGE 5
 
 // === Timer Intervals ===
 //#define SLOW_TIMER_INTERVAL   1000  // 1 second and above

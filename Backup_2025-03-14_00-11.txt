@@ -1,0 +1,496 @@
+Merged JellyfishProject Code (Generated on 2025-03-14_00-11) 
+===================================================== 
+======================================= 
+File: src\main.cpp 
+======================================= 
+#include <Arduino.h>
+#include "config.h"
+#include <SD.h>
+#include <SPI.h>
+#include <AudioFileSourceSD.h>
+#include <AudioGeneratorMP3.h>
+#include <AudioOutputI2S.h>
+#include <FastLED.h>
+#include "JellyfishAudio.h"
+#include "JellyfishQueue.h"
+#include "JellyfishLEDs.h"
+#include "TimerManager.h"
+
+// ======= LED Configuratie =======
+CRGBArray<NUM_LEDS> leds;
+
+// ======= Objecten =======
+JellyfishAudio* jellyfishAudio;
+JellyfishLEDs* jellyfishLEDs;
+JellyfishQueue queueManager;
+TimerManager timerManager;
+
+// ✅ MP3 bestand definitie hersteld
+#define MP3_FILE "/test.mp3" 
+
+// === LED Update Timer Callback ===
+void updateLEDsTask() {
+    int level = jellyfishAudio->getAudioLevel(); // ✅ Correcte aanroep
+    int brightness = map(level, 0, 5000, 10, 255);
+    brightness = constrain(brightness, 10, 255);
+
+    for (int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = CHSV(160, 255, brightness);
+    }
+    FastLED.show();
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(3000); // Wacht op hardware/Serial
+
+    jellyfishLEDs = new JellyfishLEDs();
+    jellyfishAudio = new JellyfishAudio(PIN_SD_CS, PIN_I2S_BCLK, PIN_I2S_LRC, PIN_I2S_DOUT, jellyfishLEDs);
+    jellyfishAudio->begin();
+
+    // ✅ LED-initialisatie met `config.h` waarden
+    FastLED.addLeds<LED_TYPE, PIN_RGB, LED_RGB_ORDER>(leds, NUM_LEDS);
+    FastLED.setMaxPowerInVoltsAndMilliamps(VOLTAGE, MAX_MILLIAMPS);
+    FastLED.clear();
+    FastLED.show();
+
+    // ✅ Start MP3-fragment van 5s tot 15s
+    jellyfishAudio->playFragment(MP3_FILE, 5, 15);
+
+    // ✅ TimerManager gebruiken voor LED updates elke 50ms
+    timerManager.addTimer(50, updateLEDsTask);
+}
+
+void loop() {
+    timerManager.update();
+    queueManager.process();
+    jellyfishAudio->loop();
+}
+ 
+======================================= 
+Library: lib\config 
+======================================= 
+======================================= 
+File: lib\config\config.h 
+======================================= 
+/**
+ * Jellyfish Project - Fully Restored Codebase with Timer Hierarchy
+ * Version: 2025-03-07
+ */
+
+// ========================= config.h =========================
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#include <Arduino.h>
+#include "config_secrets.h"
+
+// === Pin Definitions ===
+#define LED_PIN         2  // Built-in LED
+#define PIN_RGB         4  // LED Data Out
+#define PIN_LED         PIN_RGB
+#define PIN_I2S_DOUT   14  // I2S Data
+#define PIN_I2S_BCLK   13  // I2S Bit Clock
+#define PIN_I2S_LRC    15  // I2S Left/Right Clock
+#define PIN_SD_CS       5  // SD Card Chip Select
+
+// === LED Configuration ===
+#define NUM_LEDS 10
+#define LED_TYPE WS2812    // Define LED type
+#define LED_RGB_ORDER GRB  // Define RGB order
+
+#define MAX_MILLIAMPS 2000
+#define VOLTAGE 5
+
+// === Timer Intervals ===
+//#define SLOW_TIMER_INTERVAL   1000  // 1 second and above
+//#define FAST_TIMER_INTERVAL    250  // 100ms - 999ms
+//#define ULTRAFAST_TIMER_INTERVAL 50 // Below 100ms
+
+// === Global Variables ===
+extern int audioLevel;   // Stores real-time audio level
+extern bool silentMode;  // True if LEDs should remain off
+extern int brightness;   // LED brightness level
+
+
+
+#define SDA           21
+#define SCL           22
+#define SD_CS          5
+#define SPI_MOSI      23
+#define SPI_MISO      19
+#define SPI_SCK       18
+
+
+
+#endif  // CONFIG_H 
+======================================= 
+File: lib\config\config_secrets.h 
+======================================= 
+#ifndef CONFIG_SECRETS_H
+#define CONFIG_SECRETS_H
+
+#define WIFI_SSID "keijebijter"
+#define WIFI_PASSWORD "Helmondia'55"
+
+#endif // CONFIG_SECRETS_H
+ 
+======================================= 
+File: lib\config\config.cpp 
+======================================= 
+#include "config.h"
+
+// === Global Variables ===
+int audioLevel = 0;
+bool silentMode = false;
+int brightness = 150;
+ 
+======================================= 
+Library: lib\JellyfishLEDs 
+======================================= 
+======================================= 
+File: lib\JellyfishLEDs\JellyfishLEDs.h 
+======================================= 
+#ifndef JELLYFISHLEDS_H
+#define JELLYFISHLEDS_H
+
+#include <FastLED.h>
+#include "config.h"
+
+#define DEBUG 1
+#define LOG(x) if (DEBUG) Serial.println(F(x))
+
+class JellyfishLEDs {
+public:
+    CRGB leds[NUM_LEDS];
+
+    JellyfishLEDs();
+    void setSingleColor(int index, CRGB color);
+    void updateLEDs();
+};
+
+#endif
+ 
+======================================= 
+File: lib\JellyfishLEDs\JellyfishLEDs.cpp 
+======================================= 
+#include "JellyfishLEDs.h"
+#include "JellyfishQueue.h"
+
+JellyfishQueue ledQueue;
+
+JellyfishLEDs::JellyfishLEDs() {}
+
+void JellyfishLEDs::setSingleColor(int index, CRGB color) {
+    if (index >= 0 && index < NUM_LEDS) {
+        leds[index] = color;
+        FastLED.show();
+    }
+}
+
+void JellyfishLEDs::updateLEDs(int audioLevel) {
+    int brightness = map(audioLevel, 0, 5000, 10, 255);
+    brightness = constrain(brightness, 10, 255);
+
+    for (int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = CHSV(160, 255, brightness);
+    }
+    FastLED.show();
+}
+ 
+======================================= 
+File: lib\JellyfishLEDs\keywords.txt 
+======================================= 
+ 
+// Updated: 2025-03-11 07:30:00 
+JellyfishLEDs   KEYWORD1 
+setSingleColor  KEYWORD2 
+updateLEDs      KEYWORD2 
+clearLEDs       KEYWORD2 
+// END OF GPT UPDATE FILE 
+ 
+======================================= 
+Library: lib\JellyfishQueue 
+======================================= 
+======================================= 
+File: lib\JellyfishQueue\JellyfishQueue.h 
+======================================= 
+#ifndef JELLYFISHQUEUE_H
+#define JELLYFISHQUEUE_H
+
+#include <Arduino.h>
+
+class JellyfishQueue {
+private:
+    static const int MAX_SIZE = 100;
+    char queue[MAX_SIZE];
+    int front;
+    int rear;
+    int count;
+
+public:
+    JellyfishQueue();
+
+    void add(char item);  // Renamed from enqueue
+    char dequeue();
+    void process();       // New function
+    bool isEmpty() const;
+    bool isFull() const;
+    int size() const;
+
+    // Java-style getters
+    int getFrontIndex() const;
+    int getRearIndex() const;
+    int getCount() const;
+};
+
+#endif  // JELLYFISHQUEUE_H
+ 
+======================================= 
+File: lib\JellyfishQueue\JellyfishQueue.cpp 
+======================================= 
+#include "JellyfishQueue.h"
+
+JellyfishQueue::JellyfishQueue() : front(0), rear(0), count(0) {}
+
+void JellyfishQueue::add(char item) {
+    if (!isFull()) {
+        queue[rear] = item;
+        rear = (rear + 1) % MAX_SIZE;
+        count++;
+    }
+}
+
+char JellyfishQueue::dequeue() {
+    if (!isEmpty()) {
+        char item = queue[front];
+        front = (front + 1) % MAX_SIZE;
+        count--;
+        return item;
+    }
+    return '\0'; // Return null character if empty
+}
+
+void JellyfishQueue::process() {
+    while (!isEmpty()) {
+        Serial.print(dequeue());
+    }
+}
+
+bool JellyfishQueue::isEmpty() const {
+    return count == 0;
+}
+
+bool JellyfishQueue::isFull() const {
+    return count == MAX_SIZE;
+}
+
+int JellyfishQueue::size() const {
+    return count;
+}
+
+int JellyfishQueue::getFrontIndex() const {
+    return front;
+}
+
+int JellyfishQueue::getRearIndex() const {
+    return rear;
+}
+
+int JellyfishQueue::getCount() const {
+    return count;
+}
+ 
+======================================= 
+File: lib\JellyfishQueue\keywords.txt 
+======================================= 
+# Keywords for Jellyfish Project
+
+# Class
+JellyfishQueue    KEYWORD1
+
+# Methods
+add               KEYWORD2
+dequeue           KEYWORD2
+process           KEYWORD2
+isEmpty           KEYWORD2
+isFull            KEYWORD2
+size              KEYWORD2
+getFrontIndex     KEYWORD2
+getRearIndex      KEYWORD2
+getCount          KEYWORD2
+ 
+======================================= 
+Library: lib\JellyfishAudio 
+======================================= 
+======================================= 
+File: lib\JellyfishAudio\JellyfishAudio.h 
+======================================= 
+#ifndef JELLYFISH_AUDIO_H
+#define JELLYFISH_AUDIO_H
+
+#include <Arduino.h>
+#include <SD.h>
+#include <AudioGeneratorMP3.h>
+#include <AudioFileSourceSD.h>
+#include <AudioOutputI2S.h>
+#include "JellyfishLEDs.h"
+#include "config.h"
+
+struct PlaylistEntry {
+    const char* filename;
+    unsigned long startSec;
+    unsigned long endSec;
+};
+
+class JellyfishAudio {
+public:
+    JellyfishAudio(uint8_t csPin, uint8_t bclkPin, uint8_t lrcPin, uint8_t doutPin, JellyfishLEDs* ledController);
+
+    void begin();
+    void loop();
+    bool playFragment(const char* filename, unsigned long startSec, unsigned long endSec);
+    void stop();
+    int getAudioLevel();
+    void setPlaylist(PlaylistEntry* list, size_t size);
+    bool playNext();
+    bool isPlaying();
+
+private:
+    uint8_t _csPin, _bclkPin, _lrcPin, _doutPin;
+    AudioFileSourceSD* file;
+    AudioGeneratorMP3* mp3;
+    AudioOutputI2S* audioOutput;
+
+    unsigned long fragmentStartTime, fragmentDuration;
+    bool playingFragment;
+    JellyfishLEDs* leds;
+    PlaylistEntry* playlist;
+    size_t playlistSize;
+    size_t currentTrack;
+    bool isFadingOut;
+};
+
+#endif // JELLYFISH_AUDIO_H
+ 
+======================================= 
+File: lib\JellyfishAudio\JellyfishAudio.cpp 
+======================================= 
+/* ==========================
+   File: lib/JellyfishAudio/JellyfishAudio.cpp
+   ========================== */
+   #include "JellyfishAudio.h"
+
+   JellyfishAudio::JellyfishAudio(uint8_t csPin, uint8_t bclkPin, uint8_t lrcPin, uint8_t doutPin, JellyfishLEDs* ledController)
+       : _csPin(csPin), _bclkPin(bclkPin), _lrcPin(lrcPin), _doutPin(doutPin),
+         file(nullptr), mp3(nullptr), audioOutput(nullptr),
+         fragmentStartTime(0), fragmentDuration(0), playingFragment(false), leds(ledController),
+         playlist(nullptr), playlistSize(0), currentTrack(0), isFadingOut(false) {}
+   
+   void JellyfishAudio::begin() {
+       if (!SD.begin(_csPin)) {
+           Serial.println("SD Card Mount Failed!");
+           while (1);
+       }
+       Serial.println("SD Card Mounted!");
+   
+       audioOutput = new AudioOutputI2SWithLevel();
+       audioOutput->SetPinout(_bclkPin, _lrcPin, _doutPin);
+       audioOutput->SetOutputModeMono(false);
+       audioOutput->SetRate(44100);
+       audioOutput->SetGain(1.0);
+   
+       mp3 = new AudioGeneratorMP3();
+   }
+   
+   bool JellyfishAudio::playFragment(const char* filename, unsigned long startSec, unsigned long endSec) {
+       stop();
+   
+       file = new AudioFileSourceSD(filename);
+       if (!file) {
+           Serial.printf("Failed to open file: %s\n", filename);
+           return false;
+       }
+   
+       const unsigned long bytesPerSec = 16000;
+       unsigned long startOffset = startSec * bytesPerSec;
+       file->seek(startOffset, SEEK_SET);
+   
+       if (!mp3->begin(file, audioOutput)) {
+           Serial.println("MP3 playback failed to start!");
+           return false;
+       }
+   
+       fragmentDuration = (endSec - startSec) * 1000;
+       fragmentStartTime = millis();
+       playingFragment = true;
+       isFadingOut = false;
+   
+       Serial.printf("Playing fragment from %lu s to %lu s\n", startSec, endSec);
+   
+       audioOutput->SetGain(0);
+       return true;
+   }
+   
+   void JellyfishAudio::loop() {
+       if (playingFragment && mp3 && mp3->isRunning()) {
+           mp3->loop();
+           unsigned long elapsedTime = millis() - fragmentStartTime;
+   
+           if (elapsedTime < 3000) {
+               float gain = (float)elapsedTime / 3000.0;
+               audioOutput->SetGain(gain);
+           }
+           else if (fragmentDuration - elapsedTime < 3000) {
+               float gain = (float)(fragmentDuration - elapsedTime) / 3000.0;
+               audioOutput->SetGain(gain);
+               isFadingOut = true;
+           }
+           else {
+               audioOutput->SetGain(1.0);
+           }
+       } else if (playingFragment) {
+           Serial.println("Fragment finished. Moving to next track...");
+           playingFragment = false;
+           playNext();
+       }
+   }
+   
+   void JellyfishAudio::stop() {
+       if (mp3 && mp3->isRunning()) {
+           mp3->stop();
+       }
+       playingFragment = false;
+   }
+   
+   int JellyfishAudio::getAudioLevel() {
+       return audioOutput ? audioOutput->getAudioLevel() : 0;
+   }
+   
+   void JellyfishAudio::setPlaylist(PlaylistEntry* list, size_t size) {
+       playlist = list;
+       playlistSize = size;
+       currentTrack = 0;
+   }
+   
+   bool JellyfishAudio::playNext() {
+       if (currentTrack >= playlistSize) {
+           Serial.println("End of playlist reached. Stopping playback.");
+           currentTrack = 0;
+           playingFragment = false;
+           audioOutput->stop();
+           leds->silentMode();
+           return false;
+       }
+   
+       PlaylistEntry entry = playlist[currentTrack];
+       currentTrack++;
+   
+       return playFragment(entry.filename, entry.startSec, entry.endSec);
+   }
+   
+   bool JellyfishAudio::isPlaying() {
+       return playingFragment;
+   }
+    
+WARNING: lib\TimeManager not found Skipping... 
