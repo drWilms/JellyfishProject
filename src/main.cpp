@@ -31,6 +31,7 @@ void ledEffect() {
     }
 
     leds[0] = CRGB(brightness, 0, 0);
+ 
     FastLED.show();
 }
 
