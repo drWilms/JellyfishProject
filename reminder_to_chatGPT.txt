@@ -1,0 +1,66 @@
+Jellyfish Project – Reminders for ChatGPT
+(For internal reference – To ensure structured progress without daily repetition)
+
+🔹 Key Rules & Agreements
+1️⃣ Workflow & Communication Rules
+✔ No code before discussion is fully complete.
+✔ Strictly follow the 13 development stages.
+✔ No assumptions – confirm before making changes.
+✔ No emojis in responses.
+✔ Always use Java-style getters/setters instead of direct variable access.
+✔ Timers and queues must remain flexible but structured.
+
+2️⃣ Version Control & GitHub
+✔ GitHub Repository: https://github.com/drWilms/JellyfishProject.git
+✔ No unnecessary file modifications – confirm changes before editing.
+✔ Commits must be meaningful and structured.
+✔ No blind commits – only push stable, tested versions.
+
+3️⃣ Debugging & Testing
+✔ Always check keywords.txt before using any function.
+✔ Debugging must be step-by-step – no random quick fixes.
+✔ No hardcoded delays (delay(x)) – use proper timer-based scheduling.
+✔ New features must be implemented as separate libraries.
+✔ Queues should handle all events in a structured manner.
+
+🔹 Development Structure – The 13 Stages
+📌 These 13 stages must guide all development efforts.
+
+1️⃣ Timer Framework – Implement DynTimer, ensure structured timing.
+2️⃣ Queue System – Build event-based queue processing.
+3️⃣ LED Animations – FastLED setup, frame-based timing.
+4️⃣ WiFi Management – Time sync, minimal network use.
+5️⃣ SD Card Handling – File system operations.
+6️⃣ Basic Audio – MP3 playback, audio queue integration.
+7️⃣ First Sensor – Initial I2C sensor integration.
+8️⃣ Talking Clock – Speech synthesis, queue-based timing.
+9️⃣ RemoteXY Control – Smartphone interaction.
+🔟 WiFi Streaming – Audio stream fetching.
+1️⃣1️⃣ Advanced Light Shows – Dynamic, event-driven lighting effects.
+1️⃣2️⃣ Additional Sensors – Further I2C integrations.
+1️⃣3️⃣ Final Remote Control Expansion – Full interactive control.
+
+🔹 Specific Technical Considerations
+Multi-Tiered Timer & Queue System
+✔ Multiple queues per tier for better transparency.
+✔ High-speed queue (RGB LED animations, ~50-100Hz).
+✔ Mid-speed queue (Audio-reactive brightness, ~10-50Hz).
+✔ Low-speed scheduler (WiFi, ambient light, sensor polling, ~1Hz or less).
+✔ Queue system must prevent slow tasks from blocking audio updates.
+
+WiFi & RemoteXY Handling
+✔ WiFi is used rarely (once per day for time sync, once per week for streaming).
+✔ RemoteXY must always be alert but should not interfere with WiFi tasks.
+✔ WiFi should be OFF by default, only waking when required.
+✔ Timers must prioritize RemoteXY over WiFi.
+
+Code Structure
+✔ Java-style modular programming (getters/setters).
+✔ No unnecessary renaming of files, folders, or classes.
+✔ Timers must be dynamic – no fixed "slow/fast/ultra-fast" groups.
+✔ No unnecessary new instances – reuse existing timers where possible.
+
+🔹 Pending Decisions (To Be Revisited)
+How should we handle frame-based animation timing without overloading the queue system?
+Should RemoteXY be handled via interrupts or polling?
+Should WiFi always be in STA mode, or do we need AP + STA for RemoteXY?

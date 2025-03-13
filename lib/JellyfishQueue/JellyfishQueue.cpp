@@ -65,13 +65,19 @@ size_t JellyfishQueue::size() const {
     return queue.size();
 }
 
-// New: Process the queue and print items
 void JellyfishQueue::processQueue() {
-    if (!queue.empty()) {
-        std::string event = dequeue();
-        Serial.print(event.c_str());
+    if (this->queue.empty()) return;  // ✅ Prevent empty queue processing
+
+    if (this->queue.size() > 50) {  
+        Serial.println("[WARNING] Queue Overflow Risk!");
     }
+
+    std::string item = this->queue.front();
+    this->queue.pop();
+    if (debugQueue) {
+    Serial.printf("[Queue] Processing: %s\n", item.c_str());}
 }
+
 
 // Debug control
 void JellyfishQueue::setDebug(bool enable) {

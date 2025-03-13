@@ -1,4 +1,4 @@
-https://github.com/drWilms/JellyfishProject.git
+you have access to the public repo https://github.com/drWilms/JellyfishProject.git
 
 
 Jellyfish Development Agreement
@@ -336,3 +336,40 @@ To keep the existing codebase safe while expanding, here are some critical best 
 5.	Refactor When Needed: After completing a set of new features, refactor them into a more efficient structure if needed. Don’t try to make everything perfect upfront—iterate based on feedback and testing.
 
 
+Summary: WiFi & RemoteXY Handling Strategy
+📌 Goal:
+Ensure the timer/queue framework can handle potential WiFi and RemoteXY conflicts while keeping RemoteXY always alert and WiFi usage minimal.
+
+1️⃣ WiFi Usage Pattern
+Used rarely: Time sync once per day, audio stream fetch once per week.
+Does not need to stay active—can be scheduled or queued.
+2️⃣ RemoteXY Usage Pattern
+Used once a month, but must always be alert for remote calls.
+Should not interfere with WiFi tasks but must take priority if a remote call happens.
+3️⃣ Timer/Queue Design Considerations
+✅ Multiple Queues for Clarity
+
+WiFi Queue (Low-Priority): Tasks like time sync and audio streaming.
+RemoteXY Queue (High-Priority): Listens for commands continuously.
+Other system tasks (e.g., LED updates) should run independently.
+✅ WiFi Wake-Up Strategy
+
+Keep WiFi OFF by default, only activate for scheduled tasks.
+WiFi tasks should not block RemoteXY from running.
+Queue WiFi tasks instead of executing them immediately.
+✅ RemoteXY Priority Handling
+
+RemoteXY should be interrupt-driven—if a command arrives, it must pause any scheduled WiFi task.
+If WiFi is active during a RemoteXY request, WiFi should be temporarily suspended.
+✅ Scheduling & Conflict Resolution
+
+Timers should prioritize RemoteXY events over WiFi tasks.
+Queue should prevent both from executing at the same time.
+WiFi tasks should resume after RemoteXY processing finishes.
+Final Note
+This strategy ensures:
+
+RemoteXY remains always available.
+WiFi only activates when necessary.
+Timers & queues prevent conflicts.
+📌 Use this when reaching the WiFi/RemoteXY implementation stage.

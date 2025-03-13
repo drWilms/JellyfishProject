@@ -1,4 +1,4 @@
-Merged JellyfishProject Code (Generated on 2025-03-12_09-18) 
+Merged JellyfishProject Code (Generated on 2025-03-12_17-24) 
 ===================================================== 
 ======================================= 
 File: src\main.cpp 
@@ -10,73 +10,94 @@ File: src\main.cpp
 #include <vector>
 
 /**
- * ======================== Demo4 Specification ========================
+ * ======================== Demo5 - Fully Timed Queue-Based Printing ========================
  *
- * Main Print Cycle (":" and ";"):
- * - Every 1 second, print ":" 10 times.
- * - Then switch to ";" for 9 times.
- * - Then switch back to ":" for 8 times.
- * - Continue decreasing until 0.
- * - At 0, switch to "." for 10 times, "," for 7 times, following the same decreasing pattern.
- * - This full cycle repeats 7 times.
- *
- * Secondary Print Cycle ("*" and "#"):
- * - Every 45 seconds, print "*" for 5 minutes.
- * - Then switch "*" → "#" for 4 minutes.
- * - Then switch back to "*" for 3 minutes.
- * - This full cycle repeats 13 times.
- *
- * LED Blink Cycle:
- * - LED on PIN 2 blinks with a cycle of 20ms OFF and 17ms ON.
- *
- * WiFi Management:
- * - Connect to WiFi at startup.
- * - Unconditionally reconnect every 6 minutes.
- * - Print connection status updates.
- *
- * Synchronization:
- * - "." and "," follow the same decrementing pattern as ":" and ";".
- * - "*" and "#" operate independently of the ":" and ";" cycle.
- *
- * Queue Management:
- * - All printed characters will be queued in JellyfishQueue before printing.
- *
- * Timer Management:
- * - Uses TimerManager to dynamically allocate and manage timers.
- *
- * End Condition:
- * - The program stops after 11 minutes.
+ * - WiFi connects at startup, **auto-reconnects every 6 minutes**.
+ * - WiFi **disconnects every 2 minutes**, reconnects **after 23 seconds**.
+ * - **LED on PIN 2 blinks continuously** (20ms OFF, 17ms ON).
+ * - **Each individual print character is separately queued with a timed task**.
+ * - **DynTimer schedules every event separately**.
+ * - **Follows original Demo4 print cycle exactly, but with granular task-based execution.**
  */
 
 JellyfishQueue eventQueue;
 TimerManager timerManager;
 WiFiManager wifiManager;
 
-// Print Cycle Control Variables
-char currentChar = ':';
-int repeatCount = 10;
-int mainCycleRepeats = 7;
-
-// Symbol Print Cycle Control Variables
-char symbolChar = '*';
-int symbolRepeatCount = 5;
-int symbolCycleRepeats = 13;
-
-// LED Blink Control Variables
+// LED Blink Control
 bool ledState = false;
 void toggleLED();
 int ledBlinkTimerNr;
 
-// Time Control
-unsigned long programStartTime;
-const unsigned long programDuration = 11 * 60 * 1000;
-
 // Function prototypes
-void onMainCycle();
-void onSymbolCycle();
-void processQueue();
-void manageWiFi();
+void queueMainPrintSequence();
+void queueSymbolPrintSequence();
+void enqueueCharacter(char c);
+void forceWiFiDisconnect();
+void reconnectWiFi();
 
+// WiFi Control Timers
+int forceDisconnectTimerNr;
+int wifiReconnectTimerNr;
+
+// Print Cycle Variables (kept global for individual task scheduling)
+char mainCycleChars[] = {':', ';', ':', ';', '.', ','};
+int mainCycleCounts[] = {10, 9, 8, 7, 10, 7};
+int mainCycleIndex = 0;
+int mainCycleRepeat = 7;
+
+char symbolCycleChars[] = {'*', '#', '*'};
+int symbolCycleCounts[] = {5, 4, 3};
+int symbolCycleIndex = 0;
+int symbolCycleRepeat = 13;
+
+/**
+ * Queues individual characters at scheduled intervals.
+ */
+void enqueueCharacter(char c) {
+    eventQueue.enqueue(std::string(1, c));
+}
+
+/**
+ * Schedules an entire sequence of characters in the main print cycle.
+ */
+void queueMainPrintSequence() {
+    if (mainCycleRepeat == 0) return;
+
+    char currentChar = mainCycleChars[mainCycleIndex];
+    int repeatCount = mainCycleCounts[mainCycleIndex];
+
+    for (int i = 0; i < repeatCount; i++) {
+        timerManager.addTimer(i * 100, [currentChar]() { enqueueCharacter(currentChar); }, false);
+    }
+
+    mainCycleIndex++;
+    if (mainCycleIndex >= 6) {
+        mainCycleIndex = 0;
+        mainCycleRepeat--;
+    }
+}
+
+void queueSymbolPrintSequence() {
+    if (symbolCycleRepeat == 0) return;
+
+    char currentChar = symbolCycleChars[symbolCycleIndex];
+    int repeatCount = symbolCycleCounts[symbolCycleIndex];
+
+    for (int i = 0; i < repeatCount; i++) {
+        timerManager.addTimer(i * 500, [currentChar]() { enqueueCharacter(currentChar); }, false);
+    }
+
+    symbolCycleIndex++;
+    if (symbolCycleIndex >= 3) {
+        symbolCycleIndex = 0;
+        symbolCycleRepeat--;
+    }
+}
+
+/**
+ * Toggles the LED on PIN 2 with dynamic timing.
+ */
 void toggleLED() {
     ledState = !ledState;
     digitalWrite(LED_PIN, ledState);
@@ -87,74 +108,37 @@ void toggleLED() {
     }
 }
 
-void onMainCycle() {
-    if (mainCycleRepeats == 0) return;
-    eventQueue.enqueue(std::string(1, currentChar));
-    repeatCount--;
-    if (repeatCount == 0) {
-        switch (currentChar) {
-            case ':': currentChar = ';'; repeatCount = 9; break;
-            case ';': currentChar = ':'; repeatCount = 8; break;
-            case '.': currentChar = ','; repeatCount = 7; break;
-            case ',': currentChar = '.'; repeatCount = 10; break;
-        }
-        if (repeatCount == 10 && currentChar == '.') {
-            mainCycleRepeats--;
-        }
-    }
-}
-
-void onSymbolCycle() {
-    if (symbolCycleRepeats == 0) return;
-    eventQueue.enqueue(std::string(1, symbolChar) + "\n");
-    symbolRepeatCount--;
-    if (symbolRepeatCount == 0) {
-        switch (symbolChar) {
-            case '*': symbolChar = '#'; symbolRepeatCount = 4; break;
-            case '#': symbolChar = '*'; symbolRepeatCount = 3; break;
-        }
-        if (symbolRepeatCount == 5 && symbolChar == '*') {
-            symbolCycleRepeats--;
-        }
-    }
-}
-
-void processQueue() {
-    if (!eventQueue.isEmpty()) {
-        std::string event = eventQueue.dequeue();
-        Serial.print(event.c_str());
-    }
-    if (millis() - programStartTime >= programDuration) {
-        Serial.println("\n=== Program Ended ===");
-        timerManager.stopAll();
-    }
-}
-
-void manageWiFi() {
-    Serial.println("[WiFi] Checking connection...");
-    wifiManager.reconnect();
-}
-
 void setup() {
     Serial.begin(115200);
-    Serial.println("=== Demo4 Start ===");
-
+    delay(1000);
+    Serial.println("=== Demo5 - Queue Everything Start ===");
+    delay(4000);
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, LOW);
-    programStartTime = millis();
 
     wifiManager.begin();  // Connect to WiFi at startup
+    wifiManager.setDebug(false);
 
-    timerManager.addTimer(1000, onMainCycle, true);
-    timerManager.addTimer(45000, onSymbolCycle, true);
-    timerManager.addTimer(10, processQueue, true);
+    // **Queue-based structured printing (original decreasing pattern)**
+    timerManager.addTimer(1000, queueMainPrintSequence, true);
+    timerManager.addTimer(45000, queueSymbolPrintSequence, true);
+
+    // Queue Processing Task (pulls and prints characters)
+    timerManager.addTimer(10, [] { eventQueue.processQueue(); }, true);
+    timerManager.setDebug(false);
+    // LED Blink Task
     ledBlinkTimerNr = timerManager.addTimer(20, toggleLED, true);
-    timerManager.addTimer(6 * 60 * 1000, manageWiFi, true); // Reconnect WiFi every 6 minutes
 }
 
 void loop() {
     timerManager.updateAll();
-} 
+    static unsigned long lastDebug = 0;
+    if (millis() - lastDebug >= 5000) { // Print every 5 seconds
+      //  Serial.printf("[DEBUG] Queue Size: %d\n", eventQueue.size());
+        lastDebug = millis();
+    }
+}
+ 
 ======================================= 
 Library: lib\config 
 ======================================= 
@@ -187,14 +171,25 @@ File: lib\config\config.h
 #define LED_RGB_ORDER GRB  // Define RGB order
 
 // === Timer Intervals ===
-#define SLOW_TIMER_INTERVAL   1000  // 1 second and above
-#define FAST_TIMER_INTERVAL    250  // 100ms - 999ms
-#define ULTRAFAST_TIMER_INTERVAL 50 // Below 100ms
+//#define SLOW_TIMER_INTERVAL   1000  // 1 second and above
+//#define FAST_TIMER_INTERVAL    250  // 100ms - 999ms
+//#define ULTRAFAST_TIMER_INTERVAL 50 // Below 100ms
 
 // === Global Variables ===
 extern int audioLevel;   // Stores real-time audio level
 extern bool silentMode;  // True if LEDs should remain off
 extern int brightness;   // LED brightness level
+
+
+
+#define SDA           21
+#define SCL           22
+#define SD_CS          5
+#define SPI_MOSI      23
+#define SPI_MISO      19
+#define SPI_SCK       18
+
+
 
 #endif  // CONFIG_H 
 ======================================= 
@@ -249,7 +244,7 @@ public:
     bool isReady();
     void reset();
     void update();
-    void setInterval(unsigned long newInterval);  // ✅ New function
+    void setInterval(unsigned long newInterval); 
 
     bool isRunning() const { return running; }
     unsigned long getNextExecution() const { return nextExecution; }
@@ -258,16 +253,21 @@ public:
 };
 
 class TimerManager {
-private:
-    std::vector<DynTimer*> timers;
-
-public:
-    int addTimer(unsigned long interval, std::function<void()> callback, bool repeating = true);
-    void removeTimer(int index);
-    void updateAll();
-    void stopAll();
-    DynTimer* getTimer(int index);  // ✅ New function
-};
+    private:
+        std::vector<DynTimer*> timers;
+        bool debugEnabled;
+    
+    public:
+        int addTimer(unsigned long interval, std::function<void()> callback, bool repeating = true);
+        void removeTimer(int index);
+        void updateAll();
+        void stopAll();
+        DynTimer* getTimer(int index);  
+        int getActiveTimerCount(); 
+        void setDebug(bool enable);
+        bool getDebug() const;
+    };
+    
 
 #endif // DYNTIMER_H
  
@@ -277,7 +277,10 @@ File: lib\DynTimer\DynTimer.cpp
 #include "DynTimer.h"
 #include <Arduino.h>
 
-// ======================== DynTimer Implementation ========================
+/**
+ * DynTimer Implementation
+ * Version: 2025-03-12
+ */
 
 DynTimer::DynTimer(unsigned long intervalMs, std::function<void()> callback, bool repeating)
     : interval(intervalMs), callback(callback), repeating(repeating), running(false), nextExecution(0), debugEnabled(false) {}
@@ -285,36 +288,62 @@ DynTimer::DynTimer(unsigned long intervalMs, std::function<void()> callback, boo
 void DynTimer::start() {
     running = true;
     nextExecution = millis() + interval;
+    if (debugEnabled) {
+        Serial.printf("[DEBUG] Timer started with interval %lu ms, next execution at %lu ms\n", interval, nextExecution);
+    }
 }
 
 void DynTimer::stop() {
     running = false;
+    if (debugEnabled) {
+        Serial.println("[DEBUG] Timer stopped.");
+    }
 }
 
 void DynTimer::pause() {
     running = false;
+    if (debugEnabled) {
+        Serial.println("[DEBUG] Timer paused.");
+    }
 }
 
 void DynTimer::resume() {
     running = true;
     nextExecution = millis() + interval;
+    if (debugEnabled) {
+        Serial.printf("[DEBUG] Timer resumed, next execution at %lu ms\n", nextExecution);
+    }
 }
 
 bool DynTimer::isReady() {
-    return running && millis() >= nextExecution;
+    if (!running) return false;
+    if (this == nullptr) {
+        Serial.println("[ERROR] DynTimer::isReady() - Null Pointer Detected!");
+        return false;
+    }
+    return millis() >= nextExecution;
 }
 
 void DynTimer::reset() {
     nextExecution = millis() + interval;
+    if (debugEnabled) {
+        Serial.printf("[DEBUG] Timer reset, next execution at %lu ms\n", nextExecution);
+    }
 }
 
 void DynTimer::setInterval(unsigned long newInterval) {
     interval = newInterval;
     reset();
+    if (debugEnabled) {
+        Serial.printf("[DEBUG] Timer interval updated to %lu ms\n", newInterval);
+    }
 }
 
 void DynTimer::update() {
     if (isReady()) {
+        if (debugEnabled) {
+            Serial.printf("[DEBUG] Executing timer callback at %lu ms\n", millis());
+        }
         callback();
         if (repeating) {
             reset();
@@ -324,40 +353,105 @@ void DynTimer::update() {
     }
 }
 
-// ======================== TimerManager Implementation ========================
+void DynTimer::setDebug(bool enable) {
+    debugEnabled = enable;
+    Serial.printf("[DynTimer] Debug mode %s\n", debugEnabled ? "enabled" : "disabled");
+}
 
+bool DynTimer::getDebug() const {
+    return debugEnabled;
+}
+
+// ======================== TimerManager Implementation ========================
 int TimerManager::addTimer(unsigned long interval, std::function<void()> callback, bool repeating) {
     DynTimer* timer = new DynTimer(interval, callback, repeating);
     timers.push_back(timer);
     timer->start();
-    return timers.size() - 1;
+    int index = timers.size() - 1;
+    
+    Serial.printf("[DEBUG] Timer Added. Total Timers: %d (Active: %d)\n", timers.size(), getActiveTimerCount());
+    
+    return index;
 }
+
+int TimerManager::getActiveTimerCount() {
+    int count = 0;
+    for (auto& timer : timers) {
+        if (timer->isRunning()) {
+            count++;
+        }
+    }
+    return count;
+}
+
 
 void TimerManager::removeTimer(int index) {
     if (index >= 0 && index < timers.size()) {
-        delete timers[index];
+        if (timers[index] != nullptr) {
+            delete timers[index];
+            timers[index] = nullptr;  // ✅ Prevent invalid access
+            Serial.printf("[DEBUG] Timer #%d removed.\n", index);
+        }
         timers.erase(timers.begin() + index);
     }
 }
 
 void TimerManager::updateAll() {
-    for (auto& timer : timers) {
-        timer->update();
+    static bool updateRunning = false;
+    if (updateRunning) {
+        Serial.println("[WARNING] Recursive updateAll() call detected!");
+        return;
     }
+    
+    updateRunning = true;  // Mark function as running
+    int activeTimers = 0;
+    
+    std::vector<DynTimer*> tempTimers = timers; // Copy the list to prevent modification issues
+
+    for (size_t i = 0; i < tempTimers.size(); i++) {
+        DynTimer* timer = tempTimers[i];
+
+        if (timer == nullptr) {
+            Serial.printf("[ERROR] NULL Timer at index %d!\n", i);
+            continue;
+        }
+
+        if (timer->isRunning()) {
+            activeTimers++;
+            timer->update();
+        }
+    }
+
+    updateRunning = false;  // Mark function as finished
+    if (debugEnabled) {
+    Serial.printf("[DEBUG] Active Timers: %d\n", activeTimers);}
 }
+
 
 void TimerManager::stopAll() {
     for (auto& timer : timers) {
         delete timer;
     }
     timers.clear();
+    Serial.println("[DEBUG] All timers stopped and cleared.");
 }
 
 DynTimer* TimerManager::getTimer(int index) {
     if (index >= 0 && index < timers.size()) {
         return timers[index];
     }
+    Serial.printf("[ERROR] getTimer() called with invalid index: %d\n", index);
     return nullptr;
+}
+
+
+void TimerManager::setDebug(bool enable) {
+    debugEnabled = enable;
+    Serial.printf("[DynTimer] Debug mode %s\n", debugEnabled ? "enabled" : "disabled");
+}
+
+bool TimerManager::getDebug() const {
+    return debugEnabled;
 }
  
 ======================================= 
@@ -452,8 +546,7 @@ File: lib\JellyfishQueue\JellyfishQueue.h
 class JellyfishQueue {
 private:
     std::queue<std::string> queue;
-    bool DebugJellyfishQueue;  // Debug flag
-
+    bool debugQueue;
 public:
     JellyfishQueue();
 
@@ -463,8 +556,8 @@ public:
     bool isEmpty() const;
     void clear();
     size_t size() const;
+    void processQueue();  // ✅ Now part of the class
 
-    // Debug control
     void setDebug(bool enable);
     bool getDebug() const;
 };
@@ -476,25 +569,30 @@ File: lib\JellyfishQueue\JellyfishQueue.cpp
 ======================================= 
 #include "JellyfishQueue.h"
 
-JellyfishQueue::JellyfishQueue() : DebugJellyfishQueue(false) {}
+/**
+ * JellyfishQueue Implementation
+ * Version: 2025-03-12
+ */
+
+JellyfishQueue::JellyfishQueue() : debugQueue(false) {}
 
 void JellyfishQueue::enqueue(const std::string& item) {
     queue.push(item);
-    if (DebugJellyfishQueue) {
+    if (debugQueue) {
         Serial.printf("[JellyfishQueue] Enqueued: %s at %lu ms\n", item.c_str(), millis());
     }
 }
 
 std::string JellyfishQueue::dequeue() {
     if (queue.empty()) {
-        if (DebugJellyfishQueue) {
+        if (debugQueue) {
             Serial.printf("[JellyfishQueue] Dequeue attempted on empty queue at %lu ms\n", millis());
         }
         return "";
     }
     std::string item = queue.front();
     queue.pop();
-    if (DebugJellyfishQueue) {
+    if (debugQueue) {
         Serial.printf("[JellyfishQueue] Dequeued: %s at %lu ms\n", item.c_str(), millis());
     }
     return item;
@@ -502,19 +600,19 @@ std::string JellyfishQueue::dequeue() {
 
 std::string JellyfishQueue::peek() const {
     if (queue.empty()) {
-        if (DebugJellyfishQueue) {
+        if (debugQueue) {
             Serial.printf("[JellyfishQueue] Peek attempted on empty queue at %lu ms\n", millis());
         }
         return "";
     }
-    if (DebugJellyfishQueue) {
+    if (debugQueue) {
         Serial.printf("[JellyfishQueue] Peek: %s at %lu ms\n", queue.front().c_str(), millis());
     }
     return queue.front();
 }
 
 bool JellyfishQueue::isEmpty() const {
-    if (DebugJellyfishQueue) {
+    if (debugQueue) {
         Serial.printf("[JellyfishQueue] isEmpty check: %s at %lu ms\n", queue.empty() ? "true" : "false", millis());
     }
     return queue.empty();
@@ -524,37 +622,56 @@ void JellyfishQueue::clear() {
     while (!queue.empty()) {
         queue.pop();
     }
-    if (DebugJellyfishQueue) {
+    if (debugQueue) {
         Serial.printf("[JellyfishQueue] Cleared at %lu ms\n", millis());
     }
 }
 
 size_t JellyfishQueue::size() const {
-    if (DebugJellyfishQueue) {
+    if (debugQueue) {
         Serial.printf("[JellyfishQueue] Size check: %lu at %lu ms\n", queue.size(), millis());
     }
     return queue.size();
 }
 
+void JellyfishQueue::processQueue() {
+    if (this->queue.empty()) return;  // ✅ Prevent empty queue processing
+
+    if (this->queue.size() > 50) {  
+        Serial.println("[WARNING] Queue Overflow Risk!");
+    }
+
+    std::string item = this->queue.front();
+    this->queue.pop();
+    if (debugQueue) {
+    Serial.printf("[Queue] Processing: %s\n", item.c_str());}
+}
+
+
 // Debug control
 void JellyfishQueue::setDebug(bool enable) {
-    DebugJellyfishQueue = enable;
-    Serial.printf("[JellyfishQueue] Debug mode %s at %lu ms\n", DebugJellyfishQueue ? "enabled" : "disabled", millis());
+    debugQueue = enable;
+    Serial.printf("[JellyfishQueue] Debug mode %s at %lu ms\n", debugQueue ? "enabled" : "disabled", millis());
 }
 
 bool JellyfishQueue::getDebug() const {
-    return DebugJellyfishQueue;
+    return debugQueue;
 }
  
 ======================================= 
 File: lib\JellyfishQueue\keywords.txt 
 ======================================= 
-# Keywords for JellyfishQueue
+# JellyfishQueue Keywords
+# Version: 2025-03-12
+
 JellyfishQueue  KEYWORD1
 enqueue         KEYWORD2
 dequeue         KEYWORD2
 isEmpty         KEYWORD2
 clear           KEYWORD2
+processQueue    KEYWORD2
+setDebug        KEYWORD2
+getDebug        KEYWORD2
  
 WARNING: lib\JellyfishAudio not found Skipping... 
 ======================================= 
@@ -566,15 +683,26 @@ File: lib\WiFiManager\WiFiManager.h
 #ifndef WIFI_MANAGER_H
 #define WIFI_MANAGER_H
 
-#include <WiFi.h>
+#include <WiFi.h>  // Ensure inclusion of WiFi functions
 #include "config.h"
 
+/**
+ * WiFiManager - Handles WiFi connection, disconnection, and reconnection.
+ * Version: 2025-03-12
+ */
+
 class WiFiManager {
+private:
+    bool debugWiFi;  // Debug flag
+
 public:
     WiFiManager();
-    void begin();       // Connects to WiFi at startup
-    void reconnect();   // Reconnects every 6 minutes
+    void begin();       // Connect to WiFi at startup
+    void reconnect();   // Reconnects if disconnected
+    void disconnect();  // Forces WiFi disconnection
     bool isConnected(); // Returns true if connected
+    void setDebug(bool enable);
+    bool getDebug() const;
 };
 
 #endif // WIFI_MANAGER_H
@@ -585,22 +713,32 @@ File: lib\WiFiManager\WiFiManager.cpp
 #include "WiFiManager.h"
 #include <Arduino.h>
 
+/**
+ * WiFiManager Implementation
+ * Version: 2025-03-12
+ */
+
 WiFiManager::WiFiManager() : debugWiFi(true) {}  // Default: Debug enabled
 
 void WiFiManager::begin() {
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    if (debugWiFi) Serial.print("[WiFi] Connecting");
+    if (debugWiFi) Serial.printf("[WiFi] Connecting to %s\n", WIFI_SSID);
 
-    unsigned long startAttemptTime = millis();  // Timeout counter
-    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {  // 10s timeout
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    unsigned long startAttemptTime = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
         delay(500);
-        if (debugWiFi) Serial.print(".");
+        Serial.print(".");
     }
 
     if (WiFi.status() == WL_CONNECTED) {
-        if (debugWiFi) Serial.println("\n[WiFi] Connected: " + WiFi.localIP().toString());
+        Serial.println("\n✅ [WiFi] CONNECTED!");
+        Serial.print("[WiFi] IP Address: ");
+        Serial.println(WiFi.localIP());
     } else {
-        if (debugWiFi) Serial.println("\n[WiFi] Connection FAILED, will retry in 6 min.");
+        Serial.println("\n❌ [WiFi] Connection FAILED.");
     }
 }
 
@@ -608,6 +746,11 @@ void WiFiManager::reconnect() {
     if (debugWiFi) Serial.println("[WiFi] Reconnecting...");
     WiFi.disconnect();
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+}
+
+void WiFiManager::disconnect() {
+    if (debugWiFi) Serial.println("[WiFi] Disconnecting...");
+    WiFi.disconnect(true);
 }
 
 bool WiFiManager::isConnected() {
@@ -626,4 +769,14 @@ bool WiFiManager::getDebug() const {
 ======================================= 
 File: lib\WiFiManager\keywords.txt 
 ======================================= 
+# WiFiManager Keywords
+# Version: 2025-03-12
+
+WiFiManager  KEYWORD1
+begin        KEYWORD2
+reconnect    KEYWORD2
+disconnect   KEYWORD2
+isConnected  KEYWORD2
+setDebug     KEYWORD2
+getDebug     KEYWORD2
  
