@@ -1,165 +1,157 @@
 #include <Arduino.h>
-#include "config.h"
-#include "TimerManager.h"
-#include "JellyfishQueue.h"
+#include <SD.h>
+#include <SPI.h>
+#include <AudioFileSourceSD.h>
+#include <AudioGeneratorMP3.h>
+#include <AudioOutputI2S.h>
 #include <FastLED.h>
+#include "AudioOutputI2SWithLevel.h"
+#include "JellyfishQueue.h"
+#include "config.h"
 
-HighSpeedTimer highSpeed;
-MidSpeedTimer midSpeed;
-LowSpeedTimer lowSpeed;
+// ======= Versie & Timestamp =======
+#define JELLYFISH_VERSION "Demo6"
+#define COMPILE_DATE __DATE__
+#define COMPILE_TIME __TIME__
 
-JellyfishQueue fastPrintQueue;  // Stores ':' and ';'
-JellyfishQueue midPrintQueue;   // Stores '*' and '#'
-JellyfishQueue slowPrintQueue;  // Stores '=' and '-'
+// ======= MP3-bestand =======
+#define MP3_FILE "/test.mp3"  // Gedefinieerd in main.cpp (geen hardware)
 
-CRGB leds[NUM_LEDS];
+// ======= LED Configuration =======
+CRGB leds[NUM_LEDS];  // Correcte LED-array declaratie
 
-// === Fast Print Pattern (Queue Fill) ===
-const char fastCycleChars[] = {':', ';'};
-int fastPattern[] = {6, 1, 6, 2, 5, 3};  // Spacing Pattern
-int fastPatternIndex = 0;
+// ======= Audio Objects =======
+AudioFileSourceSD *file;
+AudioGeneratorMP3 *mp3;
+AudioOutputI2SWithLevel *audioOutput;
 
-// === Mid Print Pattern (Queue Fill) ===
-const char midCycleChars[] = {'*', '#'};
-int midPatternIndex = 0;
+// Playback Control
+bool playingFragment = false;
+unsigned long fragmentStartTime = 0;
+unsigned long fragmentDuration = 0;
 
-// === Slow Print Pattern (Queue Fill) ===
-const char slowCycleChars[] = {'=', '-'};
-int slowPatternIndex = 0;
+// Queue
+JellyfishQueue queue;
 
-// === LED Fade Variables ===
-struct LEDFade {
-    int fadeValue;
-    bool fadeUp;
-    uint8_t r, g, b;
-    int step;
+// ======= Queue Event Types =======
+enum QueueEventType {
+    PLAY_MP3_FRAGMENT,
+    FADE_IN,
+    FADE_OUT,
+    UPDATE_LEDS
 };
 
-LEDFade ledFades[NUM_LEDS];  // Array for independent LED fades
+// ======= MP3 Playback Function =======
+bool playFragmentMP3(const char* filename, unsigned long startSec, unsigned long endSec) {
+  if (mp3 && mp3->isRunning()) {
+      mp3->stop();
+  }
+  if (file) {
+      file->close();
+      delete file;
+      file = nullptr;
+  }
 
-// === Fill Fast Print Queue (": and ;") ===
-void fillFastPrintQueue() {
-    if (fastPrintQueue.isEmpty()) {
-        if (fastPatternIndex < sizeof(fastPattern) / sizeof(fastPattern[0])) {
-            char currentChar = fastCycleChars[fastPatternIndex % 2];
-            int count = fastPattern[fastPatternIndex];
+  file = new AudioFileSourceSD(filename);
+  const unsigned long bytesPerSec = 16000;
+  unsigned long startOffset = startSec * bytesPerSec;
 
-            for (int i = 0; i < count; i++) {
-                fastPrintQueue.add(currentChar);
-            }
-            fastPatternIndex = (fastPatternIndex + 1) % (sizeof(fastPattern) / sizeof(fastPattern[0]));
-        }
-    }
+  if (!file->seek(startOffset, SEEK_SET)) {
+      Serial.println("Seek failed!");
+      return false;
+  }
+
+  if (!mp3->begin(file, audioOutput)) {
+      Serial.println("MP3 playback failed to start!");
+      return false;
+  }
+
+  fragmentDuration = (endSec - startSec) * 1000;
+  fragmentStartTime = millis();
+  playingFragment = true;
+
+  Serial.printf("Playing fragment from %lu s to %lu s\n", startSec, endSec);
+  return true;
 }
 
-// === Fill Mid Print Queue ("* and #") ===
-void fillMidPrintQueue() {
-    if (midPrintQueue.isEmpty()) {
-        midPrintQueue.add(midCycleChars[midPatternIndex % 2]);
-        midPrintQueue.add('\n');  // Ensure line break
-        midPatternIndex++;
-    }
-}
 
-// === Fill Slow Print Queue ("= and -") ===
-void fillSlowPrintQueue() {
-    if (slowPrintQueue.isEmpty()) {
-        slowPrintQueue.add(slowCycleChars[slowPatternIndex % 2]);
-        slowPrintQueue.add('\n');  // Ensure line break
-        slowPatternIndex++;
-    }
-}
+// ======= LED Update Function =======
+void updateLEDs() {
+    int level = audioOutput->getAudioLevel();
+    Serial.printf("Audio Level: %d\n", level);
+//    int brightness = map(level, 0, 5000, 10, 255);
+brightness = 100;  // Test of alle LEDs goed reageren
 
-// === Print from Fast Queue (Every 1s) ===
-void processFastPrintQueue() {
-    if (!fastPrintQueue.isEmpty()) {
-        Serial.print(fastPrintQueue.dequeue());
-    }
-    fillFastPrintQueue(); // Refill if empty
-}
-
-// === Print from Mid Queue (Every 17s) ===
-void processMidPrintQueue() {
-    if (!midPrintQueue.isEmpty()) {
-        Serial.print(midPrintQueue.dequeue());
-    }
-    fillMidPrintQueue(); // Refill if empty
-}
-
-// === Print from Slow Queue (Every 19s) ===
-void processSlowPrintQueue() {
-    if (!slowPrintQueue.isEmpty()) {
-        Serial.print(slowPrintQueue.dequeue());
-    }
-    fillSlowPrintQueue(); // Refill if empty
-}
-
-// === LED Blink (PIN 2, 20ms OFF / 17ms ON) ===
-void blinkLED() {
-    static bool ledState = false;
-    digitalWrite(LED_PIN, ledState);
-    ledState = !ledState;
-}
-
-// === RGB LED Fade (ALL LEDs Different) ===
-void fadeRGB() {
+    brightness = constrain(brightness, 10, 255);
+    
     for (int i = 0; i < NUM_LEDS; i++) {
-        if (ledFades[i].fadeUp) {
-            ledFades[i].fadeValue += ledFades[i].step;
-            if (ledFades[i].fadeValue >= 255) {
-                ledFades[i].fadeValue = 255;
-                ledFades[i].fadeUp = false;
-            }
-        } else {
-            ledFades[i].fadeValue -= ledFades[i].step;
-            if (ledFades[i].fadeValue <= 0) {
-                ledFades[i].fadeValue = 0;
-                ledFades[i].fadeUp = true;
-            }
-        }
-
-        leds[i] = CRGB(
-            (ledFades[i].r * ledFades[i].fadeValue) / 255,
-            (ledFades[i].g * ledFades[i].fadeValue) / 255,
-            (ledFades[i].b * ledFades[i].fadeValue) / 255
-        );
+        leds[i] = CHSV(160, 255, brightness);
     }
+    Serial.print("LED Levels: ");
+for (int i = 0; i < NUM_LEDS; i++) {
+    Serial.printf("[%d]=%d ", i, leds[i].getLuma());
+}
+Serial.println();
+
     FastLED.show();
+}
+
+void processQueue() {
+  if (queue.isEmpty()) return;
+  QueueEventType event = (QueueEventType)queue.dequeue();  // Correcte queue-methode
+
+  switch (event) {
+      case PLAY_MP3_FRAGMENT:
+          playFragmentMP3(MP3_FILE, 5, 15);  // Correcte aanroep
+          break;
+      case FADE_IN:
+          Serial.println("Executing FADE-IN event.");
+          break;
+      case FADE_OUT:
+          Serial.println("Executing FADE-OUT event.");
+          break;
+      case UPDATE_LEDS:
+          updateLEDs();
+          break;
+  }
 }
 
 void setup() {
-    Serial.begin(115200);
-    pinMode(LED_PIN, OUTPUT);
+  Serial.begin(115200);
+  delay(3000);
 
-    FastLED.addLeds<LED_TYPE, PIN_LED, LED_RGB_ORDER>(leds, NUM_LEDS);
-    FastLED.clear();
-    FastLED.show();
+  Serial.printf("Starting %s - Compiled on %s at %s\n", JELLYFISH_VERSION, COMPILE_DATE, COMPILE_TIME);
 
-    // Initialize LED Fades
-    for (int i = 0; i < NUM_LEDS; i++) {
-        ledFades[i].fadeValue = random(50, 200);
-        ledFades[i].fadeUp = random(0, 2);
-        ledFades[i].r = random(50, 255);
-        ledFades[i].g = random(50, 255);
-        ledFades[i].b = random(50, 255);
-        ledFades[i].step = random(3, 10);  // Different speeds
-    }
+  if (!SD.begin(SD_CS)) {
+      Serial.println("SD Card Mount Failed!");
+      while (1);
+  }
+  Serial.println("SD Card Mounted!");
 
-    // === Add Timers (All Firing Independently) ===
-    highSpeed.addTimer(20, blinkLED);          // LED Blinking (20ms OFF, 17ms ON)
-    highSpeed.addTimer(50, fadeRGB);           // RGB LED Fading
-    midSpeed.addTimer(1000, processFastPrintQueue);  // Print from fast queue (1s)
-    lowSpeed.addTimer(17000, processMidPrintQueue);  // Print from mid queue (17s)
-    lowSpeed.addTimer(19000, processSlowPrintQueue); // Print from slow queue (19s)
+  file = new AudioFileSourceSD(MP3_FILE);
+  mp3 = new AudioGeneratorMP3();
+ // audioOutput = new AudioOutputI2SWithLevel();
+ AudioOutputI2S* audioOutput = new AudioOutputI2S();
 
-    // === Fill Queues Initially ===
-    fillFastPrintQueue();
-    fillMidPrintQueue();
-    fillSlowPrintQueue();
+
+  audioOutput->SetPinout(PIN_I2S_BCLK, PIN_I2S_LRC, PIN_I2S_DOUT);
+  audioOutput->SetOutputModeMono(false);
+  audioOutput->SetRate(44100);
+  audioOutput->SetGain(1.0);
+
+  FastLED.addLeds<WS2812, PIN_LED, GRB>(leds, NUM_LEDS);
+  FastLED.setMaxPowerInVoltsAndMilliamps(5, 2000);  // Correcte voltagewaarde
+  FastLED.clear();
+  FastLED.show();
+
+  // **MP3 Fragment Playback via Queue**
+  queue.add(PLAY_MP3_FRAGMENT);
 }
 
+// ======= Main Loop =======
 void loop() {
-    highSpeed.update();
-    midSpeed.update();
-    lowSpeed.update();
+    processQueue();
+    int level = audioOutput->getAudioLevel();
+ //   Serial.printf("Audio Level Test: %d\n", level);
+
 }

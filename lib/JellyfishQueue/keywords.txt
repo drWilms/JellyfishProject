@@ -1,11 +1,15 @@
-# JellyfishQueue Keywords
-# Version: 2025-03-12
+# Keywords for Jellyfish Project
 
-JellyfishQueue  KEYWORD1
-enqueue         KEYWORD2
-dequeue         KEYWORD2
-isEmpty         KEYWORD2
-clear           KEYWORD2
-processQueue    KEYWORD2
-setDebug        KEYWORD2
-getDebug        KEYWORD2
+# Class
+JellyfishQueue    KEYWORD1
+
+# Methods
+add               KEYWORD2
+dequeue           KEYWORD2
+process           KEYWORD2
+isEmpty           KEYWORD2
+isFull            KEYWORD2
+size              KEYWORD2
+getFrontIndex     KEYWORD2
+getRearIndex      KEYWORD2
+getCount          KEYWORD2
