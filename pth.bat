@@ -1,5 +1,5 @@
 @echo off
-echo === pth.bat ==  GitHub Push Script ===
+echo === GitHub Push Script ===
 cd /d "%~dp0"
 
 echo Checking if repository is initialized...
@@ -14,7 +14,7 @@ echo Adding all changes...
 git add .
 
 echo Committing changes...
-git commit -m "Half werkende audio plus LEDs"
+git commit -m "Half werkende audio plus LEDs-2"
 
 echo Checking remote repository...
 git remote -v | findstr /C:"origin" >nul
@@ -35,7 +35,11 @@ if "%BRANCH%"=="" (
 )
 
 echo Pushing to GitHub on branch %BRANCH%...
-git push -u origin %BRANCH%
+git push -u --force origin %BRANCH%
+
+echo Fetching latest status from GitHub...
+git fetch --all
+git log -1 --oneline
 
 echo.
 echo ✅ Push completed! Check: https://github.com/drWilms/JellyfishProject
