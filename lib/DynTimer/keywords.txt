@@ -1,9 +1,0 @@
-DynTimer     KEYWORD1
-start        KEYWORD2
-isReady      KEYWORD2
-reset        KEYWORD2
-pause        KEYWORD2
-resume       KEYWORD2
-addTimer     KEYWORD2
-update       KEYWORD2
-isRunning    FUNCTION

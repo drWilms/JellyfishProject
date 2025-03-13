@@ -1,9 +1,0 @@
-# HighSpeedTimer Keywords
-HighSpeedTimer    KEYWORD1
-addTask           KEYWORD2
-update            KEYWORD2
-
-# MidSpeedTimer Keywords
-MidSpeedTimer     KEYWORD1
-addTask           KEYWORD2
-update            KEYWORD2

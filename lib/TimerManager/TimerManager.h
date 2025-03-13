@@ -1,33 +1,48 @@
 #ifndef TIMERMANAGER_H
 #define TIMERMANAGER_H
 
-#include <stdint.h>
+#include <Arduino.h>
 
-#define MAX_TIMERS 10  // Adjustable per tier
-
-struct TimerTask {
-    uint32_t interval;
-    uint32_t lastRun;
+class Timer {
+private:
+    unsigned long interval;
+    unsigned long lastRun;
     void (*callback)();
+
+public:
+    Timer(unsigned long interval, void (*callback)());
+    bool shouldRun() const;
+    void reset();
+    void execute();
 };
 
 class TimerManager {
 protected:
-    TimerTask timers[MAX_TIMERS];
-    uint8_t numTimers = 0;
+    static const int MAX_TIMERS = 10;
+    Timer* timers[MAX_TIMERS];
+    int timerCount;
 
 public:
-    void addTimer(uint32_t interval, void (*callback)());
+    TimerManager();
+    ~TimerManager();  // Destructor to prevent memory leaks
+    void addTimer(unsigned long interval, void (*callback)());
     void update();
 };
 
-// **Specialized Timer for FastLED-style animations**
-class HighSpeedTimer {
+// Tiered Timer Managers
+class HighSpeedTimer : public TimerManager {
 public:
-    void update();
+    HighSpeedTimer();
 };
 
-class MidSpeedTimer : public TimerManager {};
-class LowSpeedTimer : public TimerManager {};
+class MidSpeedTimer : public TimerManager {
+public:
+    MidSpeedTimer();
+};
 
-#endif
+class LowSpeedTimer : public TimerManager {
+public:
+    LowSpeedTimer();
+};
+
+#endif  // TIMERMANAGER_H

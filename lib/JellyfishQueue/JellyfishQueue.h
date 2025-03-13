@@ -1,23 +1,30 @@
 #ifndef JELLYFISHQUEUE_H
 #define JELLYFISHQUEUE_H
 
-#include <queue>
-#include <functional>
 #include <Arduino.h>
-
-#define DEBUG 1
-#define LOG(x) if (DEBUG) Serial.println(F(x))
 
 class JellyfishQueue {
 private:
-    std::queue<std::function<void()>> taskQueue;
-    std::vector<std::pair<unsigned long, std::function<void()>>> delayedTasks;
+    static const int MAX_SIZE = 100;
+    char queue[MAX_SIZE];
+    int front;
+    int rear;
+    int count;
 
 public:
     JellyfishQueue();
-    void enqueue(std::function<void()> task);
-    void enqueueDelayed(unsigned long delayMs, std::function<void()> task);
-    void processQueue();
+
+    void add(char item);  // Renamed from enqueue
+    char dequeue();
+    void process();       // New function
+    bool isEmpty() const;
+    bool isFull() const;
+    int size() const;
+
+    // Java-style getters
+    int getFrontIndex() const;
+    int getRearIndex() const;
+    int getCount() const;
 };
 
-#endif
+#endif  // JELLYFISHQUEUE_H

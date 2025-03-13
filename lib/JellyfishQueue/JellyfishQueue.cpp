@@ -1,30 +1,51 @@
 #include "JellyfishQueue.h"
 
-JellyfishQueue::JellyfishQueue() {}
+JellyfishQueue::JellyfishQueue() : front(0), rear(0), count(0) {}
 
-void JellyfishQueue::enqueue(std::function<void()> task) {
-    taskQueue.push(task);
+void JellyfishQueue::add(char item) {
+    if (!isFull()) {
+        queue[rear] = item;
+        rear = (rear + 1) % MAX_SIZE;
+        count++;
+    }
 }
 
-void JellyfishQueue::enqueueDelayed(unsigned long delayMs, std::function<void()> task) {
-    delayedTasks.push_back({millis() + delayMs, task});
+char JellyfishQueue::dequeue() {
+    if (!isEmpty()) {
+        char item = queue[front];
+        front = (front + 1) % MAX_SIZE;
+        count--;
+        return item;
+    }
+    return '\0'; // Return null character if empty
 }
 
-void JellyfishQueue::processQueue() {
-    while (!taskQueue.empty()) {
-        auto task = taskQueue.front();
-        taskQueue.pop();
-        task();
+void JellyfishQueue::process() {
+    while (!isEmpty()) {
+        Serial.print(dequeue());
     }
+}
 
-    unsigned long now = millis();
-    auto it = delayedTasks.begin();
-    while (it != delayedTasks.end()) {
-        if (now >= it->first) {
-            it->second();
-            it = delayedTasks.erase(it);
-        } else {
-            ++it;
-        }
-    }
+bool JellyfishQueue::isEmpty() const {
+    return count == 0;
+}
+
+bool JellyfishQueue::isFull() const {
+    return count == MAX_SIZE;
+}
+
+int JellyfishQueue::size() const {
+    return count;
+}
+
+int JellyfishQueue::getFrontIndex() const {
+    return front;
+}
+
+int JellyfishQueue::getRearIndex() const {
+    return rear;
+}
+
+int JellyfishQueue::getCount() const {
+    return count;
 }

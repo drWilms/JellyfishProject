@@ -1,34 +1,46 @@
 #include "TimerManager.h"
-#include <Arduino.h>  // Required for millis()
 
-void TimerManager::addTimer(uint32_t interval, void (*callback)()) {
-    if (numTimers < MAX_TIMERS) {
-        timers[numTimers].interval = interval;
-        timers[numTimers].lastRun = millis();
-        timers[numTimers].callback = callback;
-        numTimers++;
+// ======== TIMER CLASS ========
+Timer::Timer(unsigned long interval, void (*callback)())
+    : interval(interval), lastRun(0), callback(callback) {}
+
+bool Timer::shouldRun() const {
+    return (millis() - lastRun) >= interval;
+}
+
+void Timer::reset() {
+    lastRun = millis();
+}
+
+void Timer::execute() {
+    if (shouldRun() && callback) {
+        callback();
+        reset();
+    }
+}
+
+// ======== TIMER MANAGER ========
+TimerManager::TimerManager() : timerCount(0) {}
+
+TimerManager::~TimerManager() {
+    for (int i = 0; i < timerCount; i++) {
+        delete timers[i];  // Prevent memory leaks
+    }
+}
+
+void TimerManager::addTimer(unsigned long interval, void (*callback)()) {
+    if (timerCount < MAX_TIMERS) {
+        timers[timerCount++] = new Timer(interval, callback);
     }
 }
 
 void TimerManager::update() {
-    uint32_t now = millis();
-    for (uint8_t i = 0; i < numTimers; i++) {
-        if (now - timers[i].lastRun >= timers[i].interval) {
-            timers[i].lastRun = now;
-            timers[i].callback();
-        }
+    for (int i = 0; i < timerCount; i++) {
+        timers[i]->execute();
     }
 }
 
-// **FastLED-style HighSpeedTimer (runs continuously)**
-void HighSpeedTimer::update() {
-    static uint8_t brightness = 0;
-    static int8_t direction = 1;
-
-    brightness += direction;
-    if (brightness == 255 || brightness == 0) direction *= -1;
-
-    // Replace with actual FastLED code
-    // leds[0] = CHSV(160, 255, brightness);
-    // FastLED.show();
-}
+// ======== HIGH/MID/LOW SPEED TIMERS ========
+HighSpeedTimer::HighSpeedTimer() : TimerManager() {}
+MidSpeedTimer::MidSpeedTimer() : TimerManager() {}
+LowSpeedTimer::LowSpeedTimer() : TimerManager() {}
