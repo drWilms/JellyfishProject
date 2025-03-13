@@ -1,84 +1,54 @@
-#include <Arduino.h>
-#include "config.h"
-#include "JellyfishQueue.h"
-#include "HighSpeedTimer.h"
-#include "MidSpeedTimer.h"
 #include <FastLED.h>
+#include "TimerManager.h"
 
-#define DEBUG 1
-#define LOG(x) if (DEBUG) Serial.println(F(x))
+#define NUM_LEDS 10
+#define DATA_PIN 4
 
-// LED Variables
 CRGB leds[NUM_LEDS];
-int brightness = 0;
-bool fadeIn = true;
 
-// Timer and Queue
-JellyfishQueue eventQueue;
-HighSpeedTimer highSpeedTimer;
-MidSpeedTimer midSpeedTimer;
+HighSpeedTimer highSpeed;
+MidSpeedTimer midSpeed;
+LowSpeedTimer lowSpeed;
 
-// Timer Intervals
-const int PIN2_BLINK_ON = 222;
-const int PIN2_BLINK_OFF = 888;
-
-// === Reset LEDs Before Start ===
-void resetLEDs() {
-    for (int i = 0; i < NUM_LEDS; i++) {
-        leds[i] = CRGB::Black;
-    }
-    FastLED.show();
+void audioUpdate() {
+    Serial.println("Audio Update Triggered");
 }
 
-// === LED Fade Effect (HighSpeedTimer) ===
-void updateFadeEffect() {
-    brightness += fadeIn ? 5 : -5;
-    if (brightness >= 255) { brightness = 255; fadeIn = false; }
-    if (brightness <= 0) { brightness = 0; fadeIn = true; }
-
-    for (int i = 1; i < NUM_LEDS; i++) { // Explicitly turn off extra LEDs
-        leds[i] = CRGB::Black;
-    }
-
-    leds[0] = CRGB(brightness, brightness, brightness);
-    FastLED.show();
+void backgroundTask() {
+    Serial.println("Background Task Running");
 }
 
-// === Blink Built-in LED (MidSpeedTimer) ===
-bool ledState = false;
-void togglePin2LED() {
-    ledState = !ledState;
-    digitalWrite(LED_PIN, ledState);
-    
-    // ✅ Ensure it enqueues itself properly
-    eventQueue.enqueueDelayed(ledState ? PIN2_BLINK_ON : PIN2_BLINK_OFF, togglePin2LED);
+void ledEffect() {
+    static uint8_t brightness = 0;
+    static bool increasing = true;
+
+    if (increasing) {
+        brightness += 5;
+        if (brightness >= 255) increasing = false;
+    } else {
+        brightness -= 5;
+        if (brightness <= 0) increasing = true;
+    }
+
+    leds[0] = CRGB(brightness, 0, 0);
+    FastLED.show();
 }
 
 void setup() {
     Serial.begin(115200);
-    delay(500);
-    LOG("=== ESP32 Booting ===");
+    FastLED.addLeds<WS2812, DATA_PIN, GRB>(leds, NUM_LEDS);
+    FastLED.clear();
+    FastLED.show();
 
-    pinMode(LED_PIN, OUTPUT);
-    digitalWrite(LED_PIN, LOW);
+    midSpeed.addTimer(100, audioUpdate);
+    lowSpeed.addTimer(1000, backgroundTask);
 
-    FastLED.addLeds<LED_TYPE, PIN_LED, LED_RGB_ORDER>(leds, NUM_LEDS);
-    resetLEDs();
-
-    // ✅ Force timers to execute continuously
-    highSpeedTimer.addTask(10, updateFadeEffect);
-    midSpeedTimer.addTask(222, togglePin2LED);
-
-    eventQueue.enqueueDelayed(500, togglePin2LED); // ✅ Ensure first LED toggle enqueues itself
-    LOG("setup: All initializations completed");
-    Serial.flush();
+    Serial.println("Timers Initialized");
 }
 
 void loop() {
-    eventQueue.processQueue();
-    highSpeedTimer.update();
-    midSpeedTimer.update();
-
-    // ✅ Ensure FastLED updates every loop cycle
-    FastLED.show();
+    ledEffect();        // Run LED logic continuously
+    highSpeed.update(); // Handles animations
+    midSpeed.update();
+    lowSpeed.update();
 }
