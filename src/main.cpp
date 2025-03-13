@@ -1,138 +1,84 @@
-#include "DynTimer.h"
-#include "JellyfishQueue.h"
-#include "WiFiManager.h"
+#include <Arduino.h>
 #include "config.h"
-#include <vector>
+#include "JellyfishQueue.h"
+#include "HighSpeedTimer.h"
+#include "MidSpeedTimer.h"
+#include <FastLED.h>
 
-/**
- * ======================== Demo5 - Fully Timed Queue-Based Printing ========================
- *
- * - WiFi connects at startup, **auto-reconnects every 6 minutes**.
- * - WiFi **disconnects every 2 minutes**, reconnects **after 23 seconds**.
- * - **LED on PIN 2 blinks continuously** (20ms OFF, 17ms ON).
- * - **Each individual print character is separately queued with a timed task**.
- * - **DynTimer schedules every event separately**.
- * - **Follows original Demo4 print cycle exactly, but with granular task-based execution.**
- */
+#define DEBUG 1
+#define LOG(x) if (DEBUG) Serial.println(F(x))
 
+// LED Variables
+CRGB leds[NUM_LEDS];
+int brightness = 0;
+bool fadeIn = true;
+
+// Timer and Queue
 JellyfishQueue eventQueue;
-TimerManager timerManager;
-WiFiManager wifiManager;
+HighSpeedTimer highSpeedTimer;
+MidSpeedTimer midSpeedTimer;
 
-// LED Blink Control
+// Timer Intervals
+const int PIN2_BLINK_ON = 222;
+const int PIN2_BLINK_OFF = 888;
+
+// === Reset LEDs Before Start ===
+void resetLEDs() {
+    for (int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = CRGB::Black;
+    }
+    FastLED.show();
+}
+
+// === LED Fade Effect (HighSpeedTimer) ===
+void updateFadeEffect() {
+    brightness += fadeIn ? 5 : -5;
+    if (brightness >= 255) { brightness = 255; fadeIn = false; }
+    if (brightness <= 0) { brightness = 0; fadeIn = true; }
+
+    for (int i = 1; i < NUM_LEDS; i++) { // Explicitly turn off extra LEDs
+        leds[i] = CRGB::Black;
+    }
+
+    leds[0] = CRGB(brightness, brightness, brightness);
+    FastLED.show();
+}
+
+// === Blink Built-in LED (MidSpeedTimer) ===
 bool ledState = false;
-void toggleLED();
-int ledBlinkTimerNr;
-
-// Function prototypes
-void queueMainPrintSequence();
-void queueSymbolPrintSequence();
-void enqueueCharacter(char c);
-void forceWiFiDisconnect();
-void reconnectWiFi();
-
-// WiFi Control Timers
-int forceDisconnectTimerNr;
-int wifiReconnectTimerNr;
-
-// Print Cycle Variables (kept global for individual task scheduling)
-char mainCycleChars[] = {':', ';', ':', ';', '.', ','};
-int mainCycleCounts[] = {10, 9, 8, 7, 10, 7};
-int mainCycleIndex = 0;
-int mainCycleRepeat = 7;
-
-char symbolCycleChars[] = {'*', '#', '*'};
-int symbolCycleCounts[] = {5, 4, 3};
-int symbolCycleIndex = 0;
-int symbolCycleRepeat = 13;
-
-/**
- * Queues individual characters at scheduled intervals.
- */
-void enqueueCharacter(char c) {
-    eventQueue.enqueue(std::string(1, c));
-}
-
-/**
- * Schedules an entire sequence of characters in the main print cycle.
- */
-void queueMainPrintSequence() {
-    if (mainCycleRepeat == 0) return;
-
-    char currentChar = mainCycleChars[mainCycleIndex];
-    int repeatCount = mainCycleCounts[mainCycleIndex];
-
-    for (int i = 0; i < repeatCount; i++) {
-        timerManager.addTimer(i * 100, [currentChar]() { enqueueCharacter(currentChar); }, false);
-    }
-
-    mainCycleIndex++;
-    if (mainCycleIndex >= 6) {
-        mainCycleIndex = 0;
-        mainCycleRepeat--;
-    }
-}
-
-void queueSymbolPrintSequence() {
-    if (symbolCycleRepeat == 0) return;
-
-    char currentChar = symbolCycleChars[symbolCycleIndex];
-    int repeatCount = symbolCycleCounts[symbolCycleIndex];
-
-    for (int i = 0; i < repeatCount; i++) {
-        timerManager.addTimer(i * 500, [currentChar]() { enqueueCharacter(currentChar); }, false);
-    }
-
-    symbolCycleIndex++;
-    if (symbolCycleIndex >= 3) {
-        symbolCycleIndex = 0;
-        symbolCycleRepeat--;
-    }
-}
-
-/**
- * Toggles the LED on PIN 2 with dynamic timing.
- */
-void toggleLED() {
+void togglePin2LED() {
     ledState = !ledState;
     digitalWrite(LED_PIN, ledState);
-
-    DynTimer* ledTimer = timerManager.getTimer(ledBlinkTimerNr);
-    if (ledTimer) {
-        ledTimer->setInterval(ledState ? 17 : 20);
-    }
+    
+    // ✅ Ensure it enqueues itself properly
+    eventQueue.enqueueDelayed(ledState ? PIN2_BLINK_ON : PIN2_BLINK_OFF, togglePin2LED);
 }
 
 void setup() {
     Serial.begin(115200);
-    delay(1000);
-    Serial.println("=== Demo5 - Queue Everything Start ===");
-    delay(4000);
+    delay(500);
+    LOG("=== ESP32 Booting ===");
+
     pinMode(LED_PIN, OUTPUT);
     digitalWrite(LED_PIN, LOW);
 
-    wifiManager.begin();  // Connect to WiFi at startup
-    wifiManager.setDebug(false);
+    FastLED.addLeds<LED_TYPE, PIN_LED, LED_RGB_ORDER>(leds, NUM_LEDS);
+    resetLEDs();
 
-    // **Queue-based structured printing (original decreasing pattern)**
-    timerManager.addTimer(1000, queueMainPrintSequence, true);
-    timerManager.addTimer(45000, queueSymbolPrintSequence, true);
+    // ✅ Force timers to execute continuously
+    highSpeedTimer.addTask(10, updateFadeEffect);
+    midSpeedTimer.addTask(222, togglePin2LED);
 
-    // Queue Processing Task (pulls and prints characters)
-    timerManager.addTimer(10, [] { eventQueue.processQueue(); }, true);
-    timerManager.setDebug(false);
-    // LED Blink Task
-    ledBlinkTimerNr = timerManager.addTimer(20, toggleLED, true);
+    eventQueue.enqueueDelayed(500, togglePin2LED); // ✅ Ensure first LED toggle enqueues itself
+    LOG("setup: All initializations completed");
+    Serial.flush();
 }
 
 void loop() {
-    unsigned long startTime = millis();
-    timerManager.updateAll();
+    eventQueue.processQueue();
+    highSpeedTimer.update();
+    midSpeedTimer.update();
 
-    // 🚨 Voorkom WDT-reset door een kleine vertraging in te bouwen
-    if (millis() - startTime > 50) {
-        Serial.println("[WARNING] loop() took too long! Adding small delay.");
-        delay(1);  // Geeft de ESP32 tijd om andere taken af te handelen
-    }
+    // ✅ Ensure FastLED updates every loop cycle
+    FastLED.show();
 }
-

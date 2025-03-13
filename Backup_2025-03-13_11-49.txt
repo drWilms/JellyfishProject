@@ -1,0 +1,568 @@
+Merged JellyfishProject Code (Generated on 2025-03-13_11-49) 
+===================================================== 
+======================================= 
+File: src\main.cpp 
+======================================= 
+#include <Arduino.h>
+#include "config.h"
+#include "JellyfishQueue.h"
+#include "HighSpeedTimer.h"
+#include "MidSpeedTimer.h"
+#include <FastLED.h>
+
+#define DEBUG 1
+#define LOG(x) if (DEBUG) Serial.println(F(x))
+
+// LED Variables
+CRGB leds[NUM_LEDS];  
+int brightness = 0;
+bool fadeIn = true;
+
+// Timer and Queue
+JellyfishQueue eventQueue;
+HighSpeedTimer highSpeedTimer;
+MidSpeedTimer midSpeedTimer;
+
+// Timer Intervals
+const int PIN2_BLINK_ON = 222;
+const int PIN2_BLINK_OFF = 888;
+
+// === Reset LEDs Before Start ===
+void resetLEDs() {
+    for (int i = 0; i < NUM_LEDS; i++) {
+        leds[i] = CRGB::Black;
+    }
+    FastLED.show();
+}
+
+// === LED Fade Effect (HighSpeedTimer) ===
+void updateFadeEffect() {
+    brightness += fadeIn ? 5 : -5;
+    if (brightness >= 255) { brightness = 255; fadeIn = false; }
+    if (brightness <= 0) { brightness = 0; fadeIn = true; }
+
+    leds[0] = CRGB(brightness, brightness, brightness); // Only update LED 0
+    FastLED.show();
+}
+
+// === Blink Built-in LED (MidSpeedTimer) ===
+bool ledState = false;
+void togglePin2LED() {
+    ledState = !ledState;
+    digitalWrite(LED_PIN, ledState);
+    int nextInterval = ledState ? PIN2_BLINK_ON : PIN2_BLINK_OFF;
+    eventQueue.enqueueDelayed(nextInterval, togglePin2LED);
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(500);
+    LOG("=== ESP32 Booting ===");
+
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, LOW);
+
+    FastLED.addLeds<LED_TYPE, PIN_LED, LED_RGB_ORDER>(leds, NUM_LEDS);
+    resetLEDs();  // Ensure all LEDs are black before starting
+
+    // Initialize Timers
+    highSpeedTimer.addTask(10, updateFadeEffect);
+    midSpeedTimer.addTask(222, togglePin2LED);
+
+    eventQueue.enqueueDelayed(500, togglePin2LED); // Ensure first LED toggle
+    LOG("setup: All initializations completed");
+    Serial.flush();
+}
+
+void loop() {
+    eventQueue.processQueue();
+    highSpeedTimer.update();
+    midSpeedTimer.update();
+}
+ 
+======================================= 
+Library: lib\config 
+======================================= 
+======================================= 
+File: lib\config\config.h 
+======================================= 
+/**
+ * Jellyfish Project - Fully Restored Codebase with Timer Hierarchy
+ * Version: 2025-03-07
+ */
+
+// ========================= config.h =========================
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#include <Arduino.h>
+#include "config_secrets.h"
+
+// === Pin Definitions ===
+#define LED_PIN         2  // Built-in LED
+#define PIN_LED         4  // LED Data Out
+#define PIN_I2S_DOUT   14  // I2S Data
+#define PIN_I2S_BCLK   13  // I2S Bit Clock
+#define PIN_I2S_LRC    15  // I2S Left/Right Clock
+#define PIN_SD_CS       5  // SD Card Chip Select
+
+// === LED Configuration ===
+#define NUM_LEDS 10
+#define LED_TYPE WS2812    // Define LED type
+#define LED_RGB_ORDER GRB  // Define RGB order
+
+// === Timer Intervals ===
+//#define SLOW_TIMER_INTERVAL   1000  // 1 second and above
+//#define FAST_TIMER_INTERVAL    250  // 100ms - 999ms
+//#define ULTRAFAST_TIMER_INTERVAL 50 // Below 100ms
+
+// === Global Variables ===
+extern int audioLevel;   // Stores real-time audio level
+extern bool silentMode;  // True if LEDs should remain off
+extern int brightness;   // LED brightness level
+
+
+
+#define SDA           21
+#define SCL           22
+#define SD_CS          5
+#define SPI_MOSI      23
+#define SPI_MISO      19
+#define SPI_SCK       18
+
+
+
+#endif  // CONFIG_H 
+======================================= 
+File: lib\config\config_secrets.h 
+======================================= 
+#ifndef CONFIG_SECRETS_H
+#define CONFIG_SECRETS_H
+
+#define WIFI_SSID "keijebijter"
+#define WIFI_PASSWORD "Helmondia'55"
+
+#endif // CONFIG_SECRETS_H
+ 
+======================================= 
+File: lib\config\config.cpp 
+======================================= 
+#include "config.h"
+
+// === Global Variables ===
+int audioLevel = 0;
+bool silentMode = false;
+int brightness = 150;
+ 
+======================================= 
+Library: lib\JellyfishLEDs 
+======================================= 
+======================================= 
+File: lib\JellyfishLEDs\JellyfishLEDs.h 
+======================================= 
+#ifndef JELLYFISHLEDS_H
+#define JELLYFISHLEDS_H
+
+#include <FastLED.h>
+#include "config.h"
+
+#define DEBUG 1
+#define LOG(x) if (DEBUG) Serial.println(F(x))
+
+class JellyfishLEDs {
+public:
+    CRGB leds[NUM_LEDS];
+
+    JellyfishLEDs();
+    void setSingleColor(int index, CRGB color);
+    void updateLEDs();
+};
+
+#endif
+ 
+======================================= 
+File: lib\JellyfishLEDs\JellyfishLEDs.cpp 
+======================================= 
+#include "JellyfishQueue.h"
+
+JellyfishQueue::JellyfishQueue() {}
+
+void JellyfishQueue::enqueue(std::function<void()> task) {
+    taskQueue.push(task);
+}
+
+void JellyfishQueue::enqueueDelayed(unsigned long delayMs, std::function<void()> task) {
+    delayedTasks.push_back({millis() + delayMs, task});
+}
+
+void JellyfishQueue::processQueue() {
+    while (!taskQueue.empty()) {
+        auto task = taskQueue.front();
+        taskQueue.pop();
+        task();
+    }
+
+    unsigned long now = millis();
+    auto it = delayedTasks.begin();
+    while (it != delayedTasks.end()) {
+        if (now >= it->first) {
+            it->second();
+            it = delayedTasks.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+ 
+======================================= 
+File: lib\JellyfishLEDs\keywords.txt 
+======================================= 
+ 
+// Updated: 2025-03-11 07:30:00 
+JellyfishLEDs   KEYWORD1 
+setSingleColor  KEYWORD2 
+updateLEDs      KEYWORD2 
+clearLEDs       KEYWORD2 
+// END OF GPT UPDATE FILE 
+ 
+======================================= 
+Library: lib\JellyfishQueue 
+======================================= 
+======================================= 
+File: lib\JellyfishQueue\JellyfishQueue.h 
+======================================= 
+#ifndef JELLYFISHQUEUE_H
+#define JELLYFISHQUEUE_H
+
+#include <queue>
+#include <functional>
+#include <Arduino.h>
+
+#define DEBUG 1
+#define LOG(x) if (DEBUG) Serial.println(F(x))
+
+class JellyfishQueue {
+private:
+    std::queue<std::function<void()>> taskQueue;
+    std::vector<std::pair<unsigned long, std::function<void()>>> delayedTasks;
+
+public:
+    JellyfishQueue();
+    void enqueue(std::function<void()> task);
+    void enqueueDelayed(unsigned long delayMs, std::function<void()> task);
+    void processQueue();
+};
+
+#endif
+ 
+======================================= 
+File: lib\JellyfishQueue\JellyfishQueue.cpp 
+======================================= 
+#include "JellyfishQueue.h"
+
+JellyfishQueue::JellyfishQueue() {}
+
+void JellyfishQueue::enqueue(std::function<void()> task) {
+    taskQueue.push(task);
+    LOG("JellyfishQueue: Task enqueued");
+}
+
+void JellyfishQueue::enqueueDelayed(unsigned long delayMs, std::function<void()> task) {
+    delayedTasks.push_back({millis() + delayMs, task});
+    LOG("JellyfishQueue: Delayed task enqueued");
+}
+
+void JellyfishQueue::processQueue() {
+    while (!taskQueue.empty()) {
+        auto task = taskQueue.front();
+        taskQueue.pop();
+        task();
+        LOG("JellyfishQueue: Task executed");
+    }
+
+    unsigned long now = millis();
+    auto it = delayedTasks.begin();
+    while (it != delayedTasks.end()) {
+        if (now >= it->first) {
+            it->second();
+            it = delayedTasks.erase(it);
+            LOG("JellyfishQueue: Delayed task executed");
+        } else {
+            ++it;
+        }
+    }
+}
+ 
+======================================= 
+File: lib\JellyfishQueue\keywords.txt 
+======================================= 
+# JellyfishQueue Keywords
+# Version: 2025-03-12
+
+JellyfishQueue  KEYWORD1
+enqueue         KEYWORD2
+dequeue         KEYWORD2
+isEmpty         KEYWORD2
+clear           KEYWORD2
+processQueue    KEYWORD2
+setDebug        KEYWORD2
+getDebug        KEYWORD2
+ 
+WARNING: lib\JellyfishAudio not found Skipping... 
+======================================= 
+Library: lib\WiFiManager 
+======================================= 
+======================================= 
+File: lib\WiFiManager\WiFiManager.h 
+======================================= 
+#ifndef WIFI_MANAGER_H
+#define WIFI_MANAGER_H
+
+#include <WiFi.h>  // Ensure inclusion of WiFi functions
+#include "config.h"
+
+/**
+ * WiFiManager - Handles WiFi connection, disconnection, and reconnection.
+ * Version: 2025-03-12
+ */
+
+class WiFiManager {
+private:
+    bool debugWiFi;  // Debug flag
+
+public:
+    WiFiManager();
+    void begin();       // Connect to WiFi at startup
+    void reconnect();   // Reconnects if disconnected
+    void disconnect();  // Forces WiFi disconnection
+    bool isConnected(); // Returns true if connected
+    void setDebug(bool enable);
+    bool getDebug() const;
+};
+
+#endif // WIFI_MANAGER_H
+ 
+======================================= 
+File: lib\WiFiManager\WiFiManager.cpp 
+======================================= 
+#include "WiFiManager.h"
+#include <Arduino.h>
+
+/**
+ * WiFiManager Implementation
+ * Version: 2025-03-12
+ */
+
+WiFiManager::WiFiManager() : debugWiFi(true) {}  // Default: Debug enabled
+
+void WiFiManager::begin() {
+    if (debugWiFi) Serial.printf("[WiFi] Connecting to %s\n", WIFI_SSID);
+
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    unsigned long startAttemptTime = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
+        delay(500);
+        Serial.print(".");
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\n✅ [WiFi] CONNECTED!");
+        Serial.print("[WiFi] IP Address: ");
+        Serial.println(WiFi.localIP());
+    } else {
+        Serial.println("\n❌ [WiFi] Connection FAILED.");
+    }
+}
+
+void WiFiManager::reconnect() {
+    if (debugWiFi) Serial.println("[WiFi] Reconnecting...");
+    WiFi.disconnect();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+}
+
+void WiFiManager::disconnect() {
+    if (debugWiFi) Serial.println("[WiFi] Disconnecting...");
+    WiFi.disconnect(true);
+}
+
+bool WiFiManager::isConnected() {
+    return WiFi.status() == WL_CONNECTED;
+}
+
+void WiFiManager::setDebug(bool enable) {
+    debugWiFi = enable;
+    Serial.printf("[WiFi] Debug mode %s.\n", debugWiFi ? "enabled" : "disabled");
+}
+
+bool WiFiManager::getDebug() const {
+    return debugWiFi;
+}
+ 
+======================================= 
+File: lib\WiFiManager\keywords.txt 
+======================================= 
+# WiFiManager Keywords
+# Version: 2025-03-12
+
+WiFiManager  KEYWORD1
+begin        KEYWORD2
+reconnect    KEYWORD2
+disconnect   KEYWORD2
+isConnected  KEYWORD2
+setDebug     KEYWORD2
+getDebug     KEYWORD2
+ 
+======================================= 
+Library: lib\HighSpeedTimer 
+======================================= 
+======================================= 
+File: lib\HighSpeedTimer\HighSpeedTimer.h 
+======================================= 
+#ifndef HIGHSPEEDTIMER_H
+#define HIGHSPEEDTIMER_H
+
+#include <Arduino.h>
+
+#define MAX_HSTIMERS 5  // Up to 5 simultaneous high-speed timers
+
+class HighSpeedTimer {
+private:
+    struct TimerTask {
+        unsigned long interval;
+        unsigned long nextRun;
+        void (*callback)();
+        bool active;
+    };
+
+    TimerTask tasks[MAX_HSTIMERS];
+
+public:
+    HighSpeedTimer();
+    void addTask(unsigned long interval, void (*callback)());
+    void update();
+};
+
+#endif  // HIGHSPEEDTIMER_H
+ 
+======================================= 
+File: lib\HighSpeedTimer\MidSpeedTimer.h 
+======================================= 
+#ifndef MIDSPEEDTIMER_H
+#define MIDSPEEDTIMER_H
+
+#include <Arduino.h>
+
+#define MAX_MSTIMERS 3  // Up to 3 simultaneous mid-speed timers
+
+class MidSpeedTimer {
+private:
+    struct TimerTask {
+        unsigned long interval;
+        unsigned long nextRun;
+        void (*callback)();
+        bool active;
+    };
+
+    TimerTask tasks[MAX_MSTIMERS];
+
+public:
+    MidSpeedTimer();
+    void addTask(unsigned long interval, void (*callback)());
+    void update();
+};
+
+#endif  // MIDSPEEDTIMER_H
+ 
+======================================= 
+File: lib\HighSpeedTimer\HighSpeedTimer.cpp 
+======================================= 
+#include "HighSpeedTimer.h"
+
+HighSpeedTimer::HighSpeedTimer() {
+    for (int i = 0; i < MAX_HSTIMERS; i++) {
+        tasks[i].active = false;
+    }
+}
+
+void HighSpeedTimer::addTask(unsigned long interval, void (*callback)()) {
+    for (int i = 0; i < MAX_HSTIMERS; i++) {
+        if (!tasks[i].active) {
+            tasks[i].interval = interval;
+            tasks[i].nextRun = millis() + interval;
+            tasks[i].callback = callback;
+            tasks[i].active = true;
+            return;
+        }
+    }
+}
+
+void HighSpeedTimer::update() {
+    unsigned long now = millis();
+    for (int i = 0; i < MAX_HSTIMERS; i++) {
+        if (tasks[i].active && now >= tasks[i].nextRun) {
+            tasks[i].callback();
+            tasks[i].nextRun = now + tasks[i].interval;
+        }
+    }
+}
+ 
+======================================= 
+File: lib\HighSpeedTimer\MidSpeedTimer.cpp 
+======================================= 
+#include "MidSpeedTimer.h"
+
+MidSpeedTimer::MidSpeedTimer() {
+    for (int i = 0; i < MAX_MSTIMERS; i++) {
+        tasks[i].active = false;
+    }
+}
+
+void MidSpeedTimer::addTask(unsigned long interval, void (*callback)()) {
+    for (int i = 0; i < MAX_MSTIMERS; i++) {
+        if (!tasks[i].active) {
+            tasks[i].interval = interval;
+            tasks[i].nextRun = millis() + interval;
+            tasks[i].callback = callback;
+            tasks[i].active = true;
+            return;
+        }
+    }
+}
+
+void MidSpeedTimer::update() {
+    unsigned long now = millis();
+    for (int i = 0; i < MAX_MSTIMERS; i++) {
+        if (tasks[i].active && now >= tasks[i].nextRun) {
+            tasks[i].callback();
+            tasks[i].nextRun = now + tasks[i].interval;
+        }
+    }
+}
+ 
+======================================= 
+File: lib\HighSpeedTimer\keywords.txt 
+======================================= 
+# HighSpeedTimer Keywords
+HighSpeedTimer    KEYWORD1
+addTask           KEYWORD2
+update            KEYWORD2
+
+# MidSpeedTimer Keywords
+MidSpeedTimer     KEYWORD1
+addTask           KEYWORD2
+update            KEYWORD2
+ 
+======================================= 
+Directory Tree of pending 
+======================================= 
+Folder PATH listing for volume CSL_D
+Volume serial number is 5A48-0911
+D:\MY DOCUMENTS\PLATFORMIO\ESP32\PROJECTS\JELLYFISHPROJECT\PENDING
+Invalid path - \MY DOCUMENTS\PLATFORMIO\ESP32\PROJECTS\JELLYFISHPROJECT\PENDING
+No subfolders exist 
+
+ 
+WARNING: pending directory not found Skipping tree structure... 

@@ -1,0 +1,45 @@
+📌 Multi-Tier Timer & Queue System – Design Document
+(For Jellyfish Project – March 2025)
+
+🔹 Overview
+The existing timer/queue framework is not scalable for high-speed tasks like RGB LED animations while handling mid-speed audio feedback and low-speed WiFi/sensor polling.
+
+This new system will introduce:
+✔ Three separate timer tiers (high, mid, low speed).
+✔ Dedicated queues for each tier to manage different priority tasks.
+✔ Efficient scheduling to prevent low-speed tasks from blocking high-speed ones.
+
+1️⃣ Multi-Tier Timer System (Timers & Frequencies)
+Each tier will have dedicated timers running at different frequencies.
+
+Tier	Target Frequency	Purpose
+High-Speed (50-100Hz)	10ms - 20ms	RGB LED animations, frame-based updates.
+Mid-Speed (10-50Hz)	20ms - 100ms	Audio-reactive brightness control.
+Low-Speed (≤1Hz)	1s - 60s	WiFi checks, RemoteXY polling, ambient light sensing.
+✅ Rules for Timer Execution
+High-speed timers should never be blocked by slow ones.
+Each tier runs independently, using its own timer manager.
+Shared access between tiers is managed via queues.
+Example: The low-speed timer detects a RemoteXY request → adds an event to the mid-speed queue → handled asynchronously.
+2️⃣ Multi-Tier Queue System (Task Scheduling & Management)
+Each tier will have a separate queue, handling tasks independently.
+
+Queue	Purpose	Task Examples
+High-Speed Queue	LED animations, real-time effects.	FastLED updates, wave animations.
+Mid-Speed Queue	Audio-reactive brightness & dynamic control.	Adjusting LED intensity based on sound.
+Low-Speed Queue	Background tasks, sensors, WiFi, RemoteXY polling.	Checking WiFi, processing remote commands.
+✅ Task Execution Flow
+Fast tasks (LEDs) should not wait for slow processes (WiFi, sensors).
+WiFi or RemoteXY requests are queued in the low-speed queue and processed in batches.
+Audio brightness updates are handled in the mid-speed queue to keep up with sound changes.
+3️⃣ Preventing Timer & Queue Conflicts
+✔ High-speed tasks run uninterrupted.
+✔ Queues allow controlled scheduling instead of immediate execution.
+✔ WiFi & RemoteXY cannot run simultaneously – one must pause when the other is active.
+✔ Dynamic allocations should be minimized to prevent memory fragmentation.
+
+📌 Next Step: Implementing the High-Speed Timer (RGB LED Control)
+Since we are building this system from scratch, do you want to:
+
+Implement just the high-speed tier first (to test animation timing)?
+Set up all three timer managers first (but leave the mid & low-speed ones empty for now)?

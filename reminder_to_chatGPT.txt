@@ -26,7 +26,7 @@ Jellyfish Project – Reminders for ChatGPT
 🔹 Development Structure – The 13 Stages
 📌 These 13 stages must guide all development efforts.
 
-1️⃣ Timer Framework – Implement DynTimer, ensure structured timing.
+1️⃣ Timer Framework – Implement TieredTimers, ensure structured timing.
 2️⃣ Queue System – Build event-based queue processing.
 3️⃣ LED Animations – FastLED setup, frame-based timing.
 4️⃣ WiFi Management – Time sync, minimal network use.

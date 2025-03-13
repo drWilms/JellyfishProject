@@ -1,6 +1,6 @@
 config
-DynTimer
 JellyfishLEDs
 JellyfishQueue
 JellyfishAudio
 WiFiManager
+TieredTimers

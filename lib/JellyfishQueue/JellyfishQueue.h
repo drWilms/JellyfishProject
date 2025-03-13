@@ -2,26 +2,22 @@
 #define JELLYFISHQUEUE_H
 
 #include <queue>
-#include <string>
+#include <functional>
 #include <Arduino.h>
+
+#define DEBUG 1
+#define LOG(x) if (DEBUG) Serial.println(F(x))
 
 class JellyfishQueue {
 private:
-    std::queue<std::string> queue;
-    bool debugQueue;
+    std::queue<std::function<void()>> taskQueue;
+    std::vector<std::pair<unsigned long, std::function<void()>>> delayedTasks;
+
 public:
     JellyfishQueue();
-
-    void enqueue(const std::string& item);
-    std::string dequeue();
-    std::string peek() const;
-    bool isEmpty() const;
-    void clear();
-    size_t size() const;
-    void processQueue();  // ✅ Now part of the class
-
-    void setDebug(bool enable);
-    bool getDebug() const;
+    void enqueue(std::function<void()> task);
+    void enqueueDelayed(unsigned long delayMs, std::function<void()> task);
+    void processQueue();
 };
 
-#endif // JELLYFISHQUEUE_H
+#endif

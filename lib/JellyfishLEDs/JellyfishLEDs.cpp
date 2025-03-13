@@ -1,25 +1,30 @@
- 
-// Updated: 2025-03-11 07:30:00 
-#include "JellyfishLEDs.h" 
-JellyfishLEDs::JellyfishLEDs() { 
-FastLED.addLeds<LED_TYPE, LED_PIN, LED_RGB_ORDER>(leds, NUM_LEDS); 
-FastLED.clear(); 
-} 
-void JellyfishLEDs::init() { 
-FastLED.clear(); 
-FastLED.show(); 
-} 
-void JellyfishLEDs::setSingleColor(int index, CRGB color) { 
-if (index >= 0 && index < NUM_LEDS) { 
-leds[index] = color; 
-FastLED.show(); 
-} 
-} 
-void JellyfishLEDs::runRainbow() { 
-static uint8_t hue = 0; 
-for (int i = 0; i < NUM_LEDS; i++) { 
-leds[i] = CHSV(hue + (i * 10), 255, 255); 
-} 
-FastLED.show(); 
-hue += 5; 
-} 
+#include "JellyfishQueue.h"
+
+JellyfishQueue::JellyfishQueue() {}
+
+void JellyfishQueue::enqueue(std::function<void()> task) {
+    taskQueue.push(task);
+}
+
+void JellyfishQueue::enqueueDelayed(unsigned long delayMs, std::function<void()> task) {
+    delayedTasks.push_back({millis() + delayMs, task});
+}
+
+void JellyfishQueue::processQueue() {
+    while (!taskQueue.empty()) {
+        auto task = taskQueue.front();
+        taskQueue.pop();
+        task();
+    }
+
+    unsigned long now = millis();
+    auto it = delayedTasks.begin();
+    while (it != delayedTasks.end()) {
+        if (now >= it->first) {
+            it->second();
+            it = delayedTasks.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
