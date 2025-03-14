@@ -3,4 +3,4 @@ JellyfishLEDs
 JellyfishQueue
 JellyfishAudio
 WiFiManager
-TieredTimers
+TimerManager

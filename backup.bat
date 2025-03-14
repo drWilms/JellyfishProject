@@ -41,16 +41,6 @@ for /f "delims=" %%L in (libs_list.txt) do (
     )
 )
 
-:: Add directory tree of pending directory if it exists
-if exist . (
-    echo ======================================= >> %backupfile%
-    echo Directory Tree of current directory >> %backupfile%
-    echo ======================================= >> %backupfile%
-    tree /F >> %backupfile%
-    echo. >> %backupfile%
-) else (
-    echo WARNING: pending directory not found! Skipping tree structure... >> %backupfile%
-)
 
 :: Completion message
 echo Backup completed! File saved as %backupfile%

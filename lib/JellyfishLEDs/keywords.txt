@@ -1,7 +1,13 @@
- 
-// Updated: 2025-03-11 07:30:00 
-JellyfishLEDs   KEYWORD1 
-setSingleColor  KEYWORD2 
-updateLEDs      KEYWORD2 
-clearLEDs       KEYWORD2 
-// END OF GPT UPDATE FILE 
+# JellyfishLEDs - Keyword Definitions
+
+JellyfishLEDs         KEYWORD1
+setBrightness         KEYWORD2
+getBrightness         KEYWORD2
+setColor             KEYWORD2
+getColor             KEYWORD2
+startBreathingEffect  KEYWORD2
+stopBreathingEffect   KEYWORD2
+setAudioReactive      KEYWORD2
+enableSilentMode      KEYWORD2
+disableSilentMode     KEYWORD2
+updateLEDs           KEYWORD2

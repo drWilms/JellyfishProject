@@ -1,0 +1,942 @@
+Merged JellyfishProject Code (Generated on 2025-03-14_11-52) 
+===================================================== 
+======================================= 
+File: src\main.cpp 
+======================================= 
+#include <Arduino.h>
+#include "config.h"
+#include "TimerManager.h"
+#include "JellyfishQueue.h"
+#include <FastLED.h>
+
+TimerManager timerManager;
+
+JellyfishQueue fastPrintQueue;  // Stores ':' and ';'
+JellyfishQueue midPrintQueue;   // Stores '*' and '#'
+JellyfishQueue slowPrintQueue;  // Stores '=' and '-'
+
+CRGB leds[NUM_LEDS];
+
+// === Fast Print Pattern (Queue Fill) ===
+const char fastCycleChars[] = {':', ';'};
+int fastPattern[] = {6, 1, 6, 2, 5, 3};  // Spacing Pattern
+int fastPatternIndex = 0;
+
+// === Mid Print Pattern (Queue Fill) ===
+const char midCycleChars[] = {'*', '#'};
+int midPatternIndex = 0;
+
+// === Slow Print Pattern (Queue Fill) ===
+const char slowCycleChars[] = {'=', '-'};
+int slowPatternIndex = 0;
+
+// === LED Fade Variables ===
+struct LEDFade {
+    int fadeValue;
+    bool fadeUp;
+    uint8_t r, g, b;
+    int step;
+};
+
+LEDFade ledFades[NUM_LEDS];  // Array for independent LED fades
+
+// === Fill Fast Print Queue (": and ;") ===
+void fillFastPrintQueue() {
+    if (fastPrintQueue.isEmpty()) {
+        if (fastPatternIndex < sizeof(fastPattern) / sizeof(fastPattern[0])) {
+            char currentChar = fastCycleChars[fastPatternIndex % 2];
+            int count = fastPattern[fastPatternIndex];
+
+            for (int i = 0; i < count; i++) {
+                fastPrintQueue.add(currentChar);
+            }
+            fastPatternIndex = (fastPatternIndex + 1) % (sizeof(fastPattern) / sizeof(fastPattern[0]));
+        }
+    }
+}
+
+// === Fill Mid Print Queue ("* and #") ===
+void fillMidPrintQueue() {
+    if (midPrintQueue.isEmpty()) {
+        midPrintQueue.add(midCycleChars[midPatternIndex % 2]);
+        midPrintQueue.add('\n');  // Ensure line break
+        midPatternIndex++;
+    }
+}
+
+// === Fill Slow Print Queue ("= and -") ===
+void fillSlowPrintQueue() {
+    if (slowPrintQueue.isEmpty()) {
+        slowPrintQueue.add(slowCycleChars[slowPatternIndex % 2]);
+        slowPrintQueue.add('\n');  // Ensure line break
+        slowPatternIndex++;
+    }
+}
+
+// === Print from Fast Queue (Every 1s) ===
+void processFastPrintQueue() {
+    if (!fastPrintQueue.isEmpty()) {
+        Serial.print(fastPrintQueue.dequeue());
+    }
+    fillFastPrintQueue(); // Refill if empty
+}
+
+// === Print from Mid Queue (Every 17s) ===
+void processMidPrintQueue() {
+    if (!midPrintQueue.isEmpty()) {
+        Serial.print(midPrintQueue.dequeue());
+    }
+    fillMidPrintQueue(); // Refill if empty
+}
+
+// === Print from Slow Queue (Every 19s) ===
+void processSlowPrintQueue() {
+    if (!slowPrintQueue.isEmpty()) {
+        Serial.print(slowPrintQueue.dequeue());
+    }
+    fillSlowPrintQueue(); // Refill if empty
+}
+
+// === LED Blink (PIN 2, 20ms OFF / 17ms ON) ===
+void blinkLED() {
+    static bool ledState = false;
+    digitalWrite(LED_PIN, ledState);
+    ledState = !ledState;
+}
+
+// === RGB LED Fade (ALL LEDs Different) ===
+void fadeRGB() {
+    for (int i = 0; i < NUM_LEDS; i++) {
+        if (ledFades[i].fadeUp) {
+            ledFades[i].fadeValue += ledFades[i].step;
+            if (ledFades[i].fadeValue >= 255) {
+                ledFades[i].fadeValue = 255;
+                ledFades[i].fadeUp = false;
+            }
+        } else {
+            ledFades[i].fadeValue -= ledFades[i].step;
+            if (ledFades[i].fadeValue <= 0) {
+                ledFades[i].fadeValue = 0;
+                ledFades[i].fadeUp = true;
+            }
+        }
+
+        leds[i] = CRGB(
+            (ledFades[i].r * ledFades[i].fadeValue) / 255,
+            (ledFades[i].g * ledFades[i].fadeValue) / 255,
+            (ledFades[i].b * ledFades[i].fadeValue) / 255
+        );
+    }
+    FastLED.show();
+}
+
+void setup() {
+    Serial.begin(115200);
+    pinMode(LED_PIN, OUTPUT);
+
+    FastLED.addLeds<LED_TYPE, PIN_LED, LED_RGB_ORDER>(leds, NUM_LEDS);
+    FastLED.clear();
+    FastLED.show();
+
+    // Initialize LED Fades
+    for (int i = 0; i < NUM_LEDS; i++) {
+        ledFades[i].fadeValue = random(50, 200);
+        ledFades[i].fadeUp = random(0, 2);
+        ledFades[i].r = random(50, 255);
+        ledFades[i].g = random(50, 255);
+        ledFades[i].b = random(50, 255);
+        ledFades[i].step = random(3, 10);  // Different speeds
+    }
+
+    // === **Gebruik FastTimer voor snelle taken** ===
+    timerManager.startFastTimer(20, blinkLED);          // LED Blinking (20ms)
+    timerManager.startFastTimer(50, fadeRGB);           // RGB LED Fading
+
+    // === **Medium Timers correct ingesteld** ===
+    timerManager.startMediumTimer(1000, processFastPrintQueue);  // Print van Fast Queue (1s)
+
+    // === **Slow Timers correct ingesteld** ===
+    timerManager.startSlowTimer(17000, processMidPrintQueue);  // Print van Mid Queue (17s)
+    timerManager.startSlowTimer(19000, processSlowPrintQueue); // Print van Slow Queue (19s)
+
+    // === Fill Queues Initially ===
+    fillFastPrintQueue();
+    fillMidPrintQueue();
+    fillSlowPrintQueue();
+}
+
+void loop() {
+    timerManager.updateTimers();
+}
+ 
+======================================= 
+Library: lib\config 
+======================================= 
+======================================= 
+File: lib\config\config.h 
+======================================= 
+/**
+ * Jellyfish Project - Fully Restored Codebase with Timer Hierarchy
+ * Version: 2025-03-07
+ */
+
+// ========================= config.h =========================
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#include <Arduino.h>
+#include "config_secrets.h"
+
+// === Pin Definitions ===
+#define LED_PIN         2  // Built-in LED
+#define PIN_LED         4  // LED Data Out
+#define PIN_I2S_DOUT   14  // I2S Data
+#define PIN_I2S_BCLK   13  // I2S Bit Clock
+#define PIN_I2S_LRC    15  // I2S Left/Right Clock
+#define PIN_SD_CS       5  // SD Card Chip Select
+
+// === LED Configuration ===
+#define NUM_LEDS 10
+#define LED_TYPE WS2812    // Define LED type
+#define LED_RGB_ORDER GRB  // Define RGB order
+
+// === Timer Intervals ===
+//#define SLOW_TIMER_INTERVAL   1000  // 1 second and above
+//#define FAST_TIMER_INTERVAL    250  // 100ms - 999ms
+//#define ULTRAFAST_TIMER_INTERVAL 50 // Below 100ms
+
+// === Global Variables ===
+extern int audioLevel;   // Stores real-time audio level
+extern bool silentMode;  // True if LEDs should remain off
+extern int brightness;   // LED brightness level
+
+
+
+#define SDA           21
+#define SCL           22
+#define SD_CS          5
+#define SPI_MOSI      23
+#define SPI_MISO      19
+#define SPI_SCK       18
+
+
+
+#endif  // CONFIG_H 
+======================================= 
+File: lib\config\config_secrets.h 
+======================================= 
+#ifndef CONFIG_SECRETS_H
+#define CONFIG_SECRETS_H
+
+#define WIFI_SSID "keijebijter"
+#define WIFI_PASSWORD "Helmondia'55"
+
+#endif // CONFIG_SECRETS_H
+ 
+======================================= 
+File: lib\config\config.cpp 
+======================================= 
+#include "config.h"
+
+// === Global Variables ===
+int audioLevel = 0;
+bool silentMode = false;
+int brightness = 150;
+ 
+======================================= 
+Library: lib\JellyfishLEDs 
+======================================= 
+======================================= 
+File: lib\JellyfishLEDs\JellyfishLEDs.h 
+======================================= 
+#ifndef JELLYFISHLEDS_H
+#define JELLYFISHLEDS_H
+
+#include <FastLED.h>
+#include "config.h"
+
+#define DEBUG 1
+#define LOG(x) if (DEBUG) Serial.println(F(x))
+
+class JellyfishLEDs {
+public:
+    CRGB leds[NUM_LEDS];
+
+    JellyfishLEDs();
+    void setSingleColor(int index, CRGB color);
+    void updateLEDs();
+};
+
+#endif
+ 
+======================================= 
+File: lib\JellyfishLEDs\JellyfishLEDs.cpp 
+======================================= 
+#include "JellyfishQueue.h"
+
+JellyfishQueue::JellyfishQueue() {}
+
+void JellyfishQueue::enqueue(std::function<void()> task) {
+    taskQueue.push(task);
+}
+
+void JellyfishQueue::enqueueDelayed(unsigned long delayMs, std::function<void()> task) {
+    delayedTasks.push_back({millis() + delayMs, task});
+}
+
+void JellyfishQueue::processQueue() {
+    while (!taskQueue.empty()) {
+        auto task = taskQueue.front();
+        taskQueue.pop();
+        task();
+    }
+
+    unsigned long now = millis();
+    auto it = delayedTasks.begin();
+    while (it != delayedTasks.end()) {
+        if (now >= it->first) {
+            it->second();
+            it = delayedTasks.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+ 
+======================================= 
+File: lib\JellyfishLEDs\keywords.txt 
+======================================= 
+ 
+// Updated: 2025-03-11 07:30:00 
+JellyfishLEDs   KEYWORD1 
+setSingleColor  KEYWORD2 
+updateLEDs      KEYWORD2 
+clearLEDs       KEYWORD2 
+// END OF GPT UPDATE FILE 
+ 
+======================================= 
+Library: lib\JellyfishQueue 
+======================================= 
+======================================= 
+File: lib\JellyfishQueue\JellyfishQueue.h 
+======================================= 
+#ifndef JELLYFISHQUEUE_H
+#define JELLYFISHQUEUE_H
+
+#include <Arduino.h>
+
+class JellyfishQueue {
+private:
+    static const int MAX_SIZE = 100;
+    char queue[MAX_SIZE];
+    int front;
+    int rear;
+    int count;
+
+public:
+    JellyfishQueue();
+
+    void add(char item);  // Renamed from enqueue
+    char dequeue();
+    void process();       // New function
+    bool isEmpty() const;
+    bool isFull() const;
+    int size() const;
+
+    // Java-style getters
+    int getFrontIndex() const;
+    int getRearIndex() const;
+    int getCount() const;
+};
+
+#endif  // JELLYFISHQUEUE_H
+ 
+======================================= 
+File: lib\JellyfishQueue\JellyfishQueue.cpp 
+======================================= 
+#include "JellyfishQueue.h"
+
+JellyfishQueue::JellyfishQueue() : front(0), rear(0), count(0) {}
+
+void JellyfishQueue::add(char item) {
+    if (!isFull()) {
+        queue[rear] = item;
+        rear = (rear + 1) % MAX_SIZE;
+        count++;
+    }
+}
+
+char JellyfishQueue::dequeue() {
+    if (!isEmpty()) {
+        char item = queue[front];
+        front = (front + 1) % MAX_SIZE;
+        count--;
+        return item;
+    }
+    return '\0'; // Return null character if empty
+}
+
+void JellyfishQueue::process() {
+    while (!isEmpty()) {
+        Serial.print(dequeue());
+    }
+}
+
+bool JellyfishQueue::isEmpty() const {
+    return count == 0;
+}
+
+bool JellyfishQueue::isFull() const {
+    return count == MAX_SIZE;
+}
+
+int JellyfishQueue::size() const {
+    return count;
+}
+
+int JellyfishQueue::getFrontIndex() const {
+    return front;
+}
+
+int JellyfishQueue::getRearIndex() const {
+    return rear;
+}
+
+int JellyfishQueue::getCount() const {
+    return count;
+}
+ 
+======================================= 
+File: lib\JellyfishQueue\keywords.txt 
+======================================= 
+# JellyfishQueue Keywords
+# Version: 2025-03-12
+
+JellyfishQueue  KEYWORD1
+enqueue         KEYWORD2
+dequeue         KEYWORD2
+isEmpty         KEYWORD2
+clear           KEYWORD2
+processQueue    KEYWORD2
+setDebug        KEYWORD2
+getDebug        KEYWORD2
+ 
+======================================= 
+Library: lib\JellyfishAudio 
+======================================= 
+======================================= 
+File: lib\JellyfishAudio\AudioOutputI2SWithLevel.h 
+======================================= 
+#ifndef AUDIO_OUTPUT_I2S_WITH_LEVEL_H
+#define AUDIO_OUTPUT_I2S_WITH_LEVEL_H
+
+#include <AudioOutputI2S.h>
+
+class AudioOutputI2SWithLevel : public AudioOutputI2S {
+public:
+    AudioOutputI2SWithLevel() : audioLevel(0), currentGain(1.0f) {}
+
+    // Override SetGain to store the gain value and call the base class.
+    virtual bool SetGain(float gain) override {
+        currentGain = gain;
+        return AudioOutputI2S::SetGain(gain);
+    }
+
+    // Getter for the current gain.
+    float getCurrentGain() const {
+        return currentGain;
+    }
+
+    // Override ConsumeSample to apply the gain manually and compute the audio level.
+    virtual bool ConsumeSample(int16_t sample[2]) override {
+        // Apply the current gain to both channels.
+        sample[0] = (int16_t)(sample[0] * currentGain);
+        sample[1] = (int16_t)(sample[1] * currentGain);
+
+        // Compute the audio level for LED updates.
+        int16_t left = abs(sample[0]);
+        int16_t right = abs(sample[1]);
+        audioLevel = (left + right) / 2;
+
+        return AudioOutputI2S::ConsumeSample(sample);
+    }
+
+    // Return the computed audio level.
+    int getAudioLevel() {
+        return audioLevel;
+    }
+
+private:
+    int audioLevel;
+    float currentGain;
+};
+
+#endif
+ 
+======================================= 
+File: lib\JellyfishAudio\JellyFishAudio.h 
+======================================= 
+#ifndef JELLYFISH_AUDIO_H
+#define JELLYFISH_AUDIO_H
+
+#include <Arduino.h>
+#include <SD.h>
+#include <AudioGeneratorMP3.h>
+#include <AudioFileSourceSD.h>
+#include "AudioOutputI2SWithLevel.h"
+#include "JellyfishLEDs.h"
+#include "Debug.h"
+#include "config.h"
+
+// Playlist structure
+struct PlaylistEntry {
+    const char* filename;
+    unsigned long startSec;
+    unsigned long endSec;
+};
+
+class JellyfishAudio {
+public:
+    JellyfishAudio(uint8_t csPin, uint8_t bclkPin, uint8_t lrcPin, uint8_t doutPin, JellyfishLEDs* ledController);
+
+    void begin();
+    void loop();
+    bool playFragment(const char* filename, unsigned long startSec, unsigned long endSec);
+    void stop();
+    int getAudioLevel();
+    void setPlaylist(PlaylistEntry* list, size_t size);
+    bool playNext();
+    bool isPlaying();
+
+private:
+    // Audio Configuration
+    uint8_t _csPin, _bclkPin, _lrcPin, _doutPin;
+    AudioFileSourceSD* file;
+    AudioGeneratorMP3* mp3;
+    AudioOutputI2SWithLevel* audioOutput;
+
+    // Fragment and Playlist Management
+    unsigned long fragmentStartTime, fragmentDuration;
+    bool playingFragment;
+    JellyfishLEDs* leds;
+    PlaylistEntry* playlist;
+    size_t playlistSize;
+    size_t currentTrack;
+    bool isFadingOut;
+};
+
+#endif
+ 
+======================================= 
+File: lib\JellyfishAudio\JellyFishAudio.cpp 
+======================================= 
+#include "JellyfishAudio.h"
+#include "Debug.h"
+
+JellyfishAudio::JellyfishAudio(uint8_t csPin, uint8_t bclkPin, uint8_t lrcPin, uint8_t doutPin, JellyfishLEDs* ledController)
+    : _csPin(csPin), _bclkPin(bclkPin), _lrcPin(lrcPin), _doutPin(doutPin),
+      file(nullptr), mp3(nullptr), audioOutput(nullptr),
+      fragmentStartTime(0), fragmentDuration(0), playingFragment(false), leds(ledController),
+      playlist(nullptr), playlistSize(0), currentTrack(0), isFadingOut(false) {}
+
+void JellyfishAudio::begin() {
+    if (!SD.begin(_csPin)) {
+        Serial.println("SD Card Mount Failed!");
+        while (1);
+    }
+    Serial.println("SD Card Mounted!");
+
+    audioOutput = new AudioOutputI2SWithLevel();
+    audioOutput->SetPinout(_bclkPin, _lrcPin, _doutPin);
+    audioOutput->SetOutputModeMono(false);
+    audioOutput->SetRate(44100);
+    audioOutput->SetGain(1.0);
+
+    mp3 = new AudioGeneratorMP3();
+}
+
+bool JellyfishAudio::playFragment(const char* filename, unsigned long startSec, unsigned long endSec) {
+    stop();
+
+    file = new AudioFileSourceSD(filename);
+    if (!file) {
+        PPL("Failed to open file: %s", filename);
+        return false;
+    }
+
+    const unsigned long bytesPerSec = 16000;
+    unsigned long startOffset = startSec * bytesPerSec;
+    file->seek(startOffset, SEEK_SET);
+
+    if (!mp3->begin(file, audioOutput)) {
+        PPL("MP3 playback failed to start!");
+        return false;
+    }
+
+    fragmentDuration = (endSec - startSec) * 1000;
+    fragmentStartTime = millis();
+    playingFragment = true;
+    isFadingOut = false;
+
+    PPL("Playing fragment from %lu s to %lu s", startSec, endSec);
+
+    audioOutput->SetGain(0);
+    return true;
+}
+
+void JellyfishAudio::loop() {
+    if (playingFragment && mp3 && mp3->isRunning()) {
+        mp3->loop();
+        unsigned long elapsedTime = millis() - fragmentStartTime;
+
+        if (elapsedTime < 3000) {
+            float gain = (float)elapsedTime / 3000.0;
+            audioOutput->SetGain(gain);
+        }
+        else if (fragmentDuration - elapsedTime < 3000) {
+            float gain = (float)(fragmentDuration - elapsedTime) / 3000.0;
+            audioOutput->SetGain(gain);
+            isFadingOut = true;
+        }
+        else {
+            audioOutput->SetGain(1.0);
+        }
+    } else if (playingFragment) {
+        PPL("Fragment finished. Moving to next track...");
+        playingFragment = false;
+        playNext();
+    }
+}
+
+void JellyfishAudio::stop() {
+    if (mp3 && mp3->isRunning()) {
+        mp3->stop();
+    }
+    playingFragment = false;
+}
+
+int JellyfishAudio::getAudioLevel() {
+    return audioOutput ? audioOutput->getAudioLevel() : 0;
+}
+
+void JellyfishAudio::setPlaylist(PlaylistEntry* list, size_t size) {
+    playlist = list;
+    playlistSize = size;
+    currentTrack = 0;
+}
+
+bool JellyfishAudio::playNext() {
+    if (currentTrack >= playlistSize) {
+        PPL("End of playlist reached. Stopping playback.");
+        currentTrack = 0;
+        playingFragment = false;
+        audioOutput->stop();
+        leds->silentMode();
+        return false;
+    }
+
+    PlaylistEntry entry = playlist[currentTrack];
+    currentTrack++;
+
+    return playFragment(entry.filename, entry.startSec, entry.endSec);
+}
+
+bool JellyfishAudio::isPlaying() {
+    return playingFragment;
+}
+ 
+======================================= 
+Library: lib\WiFiManager 
+======================================= 
+======================================= 
+File: lib\WiFiManager\WiFiManager.h 
+======================================= 
+#ifndef WIFI_MANAGER_H
+#define WIFI_MANAGER_H
+
+#include <WiFi.h>  // Ensure inclusion of WiFi functions
+#include "config.h"
+
+/**
+ * WiFiManager - Handles WiFi connection, disconnection, and reconnection.
+ * Version: 2025-03-12
+ */
+
+class WiFiManager {
+private:
+    bool debugWiFi;  // Debug flag
+
+public:
+    WiFiManager();
+    void begin();       // Connect to WiFi at startup
+    void reconnect();   // Reconnects if disconnected
+    void disconnect();  // Forces WiFi disconnection
+    bool isConnected(); // Returns true if connected
+    void setDebug(bool enable);
+    bool getDebug() const;
+};
+
+#endif // WIFI_MANAGER_H
+ 
+======================================= 
+File: lib\WiFiManager\WiFiManager.cpp 
+======================================= 
+#include "WiFiManager.h"
+#include <Arduino.h>
+
+/**
+ * WiFiManager Implementation
+ * Version: 2025-03-12
+ */
+
+WiFiManager::WiFiManager() : debugWiFi(true) {}  // Default: Debug enabled
+
+void WiFiManager::begin() {
+    if (debugWiFi) Serial.printf("[WiFi] Connecting to %s\n", WIFI_SSID);
+
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    unsigned long startAttemptTime = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
+        delay(500);
+        Serial.print(".");
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("\n✅ [WiFi] CONNECTED!");
+        Serial.print("[WiFi] IP Address: ");
+        Serial.println(WiFi.localIP());
+    } else {
+        Serial.println("\n❌ [WiFi] Connection FAILED.");
+    }
+}
+
+void WiFiManager::reconnect() {
+    if (debugWiFi) Serial.println("[WiFi] Reconnecting...");
+    WiFi.disconnect();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+}
+
+void WiFiManager::disconnect() {
+    if (debugWiFi) Serial.println("[WiFi] Disconnecting...");
+    WiFi.disconnect(true);
+}
+
+bool WiFiManager::isConnected() {
+    return WiFi.status() == WL_CONNECTED;
+}
+
+void WiFiManager::setDebug(bool enable) {
+    debugWiFi = enable;
+    Serial.printf("[WiFi] Debug mode %s.\n", debugWiFi ? "enabled" : "disabled");
+}
+
+bool WiFiManager::getDebug() const {
+    return debugWiFi;
+}
+ 
+======================================= 
+File: lib\WiFiManager\keywords.txt 
+======================================= 
+# WiFiManager Keywords
+# Version: 2025-03-12
+
+WiFiManager  KEYWORD1
+begin        KEYWORD2
+reconnect    KEYWORD2
+disconnect   KEYWORD2
+isConnected  KEYWORD2
+setDebug     KEYWORD2
+getDebug     KEYWORD2
+ 
+======================================= 
+Library: lib\TimerManager 
+======================================= 
+======================================= 
+File: lib\TimerManager\DynTimer.h 
+======================================= 
+#ifndef DYNTIMER_H
+#define DYNTIMER_H
+
+#include "Arduino.h"
+
+class DynTimer {
+private:
+    unsigned long interval;
+    unsigned long lastRun;
+    bool active;
+
+public:
+    DynTimer();  
+    void start(unsigned long duration);
+    void stop();
+    bool isExpired();
+    bool isActive() const;
+};
+
+#endif // DYNTIMER_H
+ 
+======================================= 
+File: lib\TimerManager\TimerManager.h 
+======================================= 
+#ifndef TIMERMANAGER_H
+#define TIMERMANAGER_H
+
+#include "Arduino.h"
+#include "DynTimer.h"
+
+#define MAX_FAST_TIMERS 5
+#define MAX_MEDIUM_TIMERS 5
+#define MAX_SLOW_TIMERS 5
+
+typedef void (*TimerCallback)();
+
+class TimerManager {
+private:
+    DynTimer fastTimers[MAX_FAST_TIMERS];  // ✅ **Nieuw**
+    TimerCallback fastCallbacks[MAX_FAST_TIMERS];
+    unsigned long fastDurations[MAX_FAST_TIMERS];
+
+    DynTimer mediumTimers[MAX_MEDIUM_TIMERS];
+    TimerCallback mediumCallbacks[MAX_MEDIUM_TIMERS];
+    unsigned long mediumDurations[MAX_MEDIUM_TIMERS];
+
+    DynTimer slowTimers[MAX_SLOW_TIMERS];
+    TimerCallback slowCallbacks[MAX_SLOW_TIMERS];
+    unsigned long slowDurations[MAX_SLOW_TIMERS];
+
+public:
+    TimerManager();
+    
+    int startFastTimer(unsigned long duration, TimerCallback callback);  // ✅ **Nieuw**
+    int startMediumTimer(unsigned long duration, TimerCallback callback);
+    int startSlowTimer(unsigned long duration, TimerCallback callback);
+    
+    void updateTimers();
+};
+
+#endif // TIMERMANAGER_H
+ 
+======================================= 
+File: lib\TimerManager\DynTimer.cpp 
+======================================= 
+#include "DynTimer.h"
+
+DynTimer::DynTimer() : interval(0), lastRun(0), active(false) {}
+
+void DynTimer::start(unsigned long duration) {
+    interval = duration;
+    lastRun = millis();
+    active = true;
+}
+
+void DynTimer::stop() {
+    active = false;
+}
+
+bool DynTimer::isExpired() {
+    if (!active) return false;
+    return (millis() - lastRun) >= interval;
+}
+
+bool DynTimer::isActive() const {
+    return active;
+}
+ 
+======================================= 
+File: lib\TimerManager\TimerManager..cpp 
+======================================= 
+
+#include "TimerManager.h"
+#include <Arduino.h>
+
+// Constructor
+TimerManager::TimerManager() {
+    for (int i = 0; i < MAX_FAST_TIMERS; i++) {
+        fastDurations[i] = 0;
+        fastCallbacks[i] = nullptr;
+    }
+    for (int i = 0; i < MAX_MEDIUM_TIMERS; i++) {
+        mediumDurations[i] = 0;
+        mediumCallbacks[i] = nullptr;
+    }
+    for (int i = 0; i < MAX_SLOW_TIMERS; i++) {
+        slowDurations[i] = 0;
+        slowCallbacks[i] = nullptr;
+    }
+}
+
+// ✅ **Nieuwe functie voor Fast Timers**
+int TimerManager::startFastTimer(unsigned long duration, TimerCallback callback) {
+    for (int i = 0; i < MAX_FAST_TIMERS; i++) {
+        if (!fastTimers[i].isActive()) {
+            fastTimers[i].start(duration);
+            fastCallbacks[i] = callback;
+            fastDurations[i] = duration;
+            Serial.printf("✅ Fast timer gestart op index %d met duur %lu ms.\n", i, duration);
+            return i;
+        }
+    }
+    Serial.println("❌ GEEN VRIJE FAST TIMERS BESCHIKBAAR!");
+    return -1;
+}
+
+// ✅ **Medium en Slow Timers blijven zoals eerder gedefinieerd**
+int TimerManager::startMediumTimer(unsigned long duration, TimerCallback callback) {
+    for (int i = 0; i < MAX_MEDIUM_TIMERS; i++) {
+        if (!mediumTimers[i].isActive()) {
+            mediumTimers[i].start(duration);
+            mediumCallbacks[i] = callback;
+            mediumDurations[i] = duration;
+            Serial.printf("✅ Medium timer gestart op index %d met duur %lu ms.\n", i, duration);
+            return i;
+        }
+    }
+    Serial.println("❌ GEEN VRIJE MEDIUM TIMERS BESCHIKBAAR!");
+    return -1;
+}
+
+int TimerManager::startSlowTimer(unsigned long duration, TimerCallback callback) {
+    for (int i = 0; i < MAX_SLOW_TIMERS; i++) {
+        if (!slowTimers[i].isActive()) {
+            slowTimers[i].start(duration);
+            slowCallbacks[i] = callback;
+            slowDurations[i] = duration;
+            Serial.printf("✅ Slow timer gestart op index %d met duur %lu ms.\n", i, duration);
+            return i;
+        }
+    }
+    Serial.println("❌ GEEN VRIJE SLOW TIMERS BESCHIKBAAR!");
+    return -1;
+}
+
+// ✅ **Update alle timers (Fast, Medium, Slow)**
+void TimerManager::updateTimers() {
+    for (int i = 0; i < MAX_FAST_TIMERS; i++) {
+        if (fastTimers[i].isExpired() && fastCallbacks[i] != nullptr) {
+            Serial.printf("⏳ Fast timer %d verlopen, roep callback aan.\n", i);
+            fastCallbacks[i]();
+            Serial.printf("🔄 Fast timer %d herstart met %lu ms.\n", i, fastDurations[i]);  
+            fastTimers[i].start(fastDurations[i]);
+        }
+    }
+    for (int i = 0; i < MAX_MEDIUM_TIMERS; i++) {
+        if (mediumTimers[i].isExpired() && mediumCallbacks[i] != nullptr) {
+            Serial.printf("⏳ Medium timer %d verlopen, roep callback aan.\n", i);
+            mediumCallbacks[i]();
+            Serial.printf("🔄 Medium timer %d herstart met %lu ms.\n", i, mediumDurations[i]);  
+            mediumTimers[i].start(mediumDurations[i]);
+        }
+    }
+    for (int i = 0; i < MAX_SLOW_TIMERS; i++) {
+        if (slowTimers[i].isExpired() && slowCallbacks[i] != nullptr) {
+            Serial.printf("⏳ Slow timer %d verlopen, roep callback aan.\n", i);
+            slowCallbacks[i]();
+            Serial.printf("🔄 Slow timer %d herstart met %lu ms.\n", i, slowDurations[i]);  
+            slowTimers[i].start(slowDurations[i]);
+        }
+    }
+}
+ 

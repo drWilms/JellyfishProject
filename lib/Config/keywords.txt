@@ -1,0 +1,8 @@
+# config - Keyword Definitions
+
+Config           KEYWORD1
+loadConfig       KEYWORD2
+saveConfig       KEYWORD2
+setParameter     KEYWORD2
+getParameter     KEYWORD2
+resetDefaults    KEYWORD2

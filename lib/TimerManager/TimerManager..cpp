@@ -1,91 +1,111 @@
+/*
+ * TimerManager.cpp - Implements the TimerManager for handling multiple tiers of timers
+ * Version: 2025-03-14
+ */
 
-#include "TimerManager.h"
-#include <Arduino.h>
+ #include "TimerManager.h"
 
-// Constructor
-TimerManager::TimerManager() {
-    for (int i = 0; i < MAX_FAST_TIMERS; i++) {
-        fastDurations[i] = 0;
-        fastCallbacks[i] = nullptr;
-    }
-    for (int i = 0; i < MAX_MEDIUM_TIMERS; i++) {
-        mediumDurations[i] = 0;
-        mediumCallbacks[i] = nullptr;
-    }
-    for (int i = 0; i < MAX_SLOW_TIMERS; i++) {
-        slowDurations[i] = 0;
-        slowCallbacks[i] = nullptr;
-    }
-}
-
-// ✅ **Nieuwe functie voor Fast Timers**
-int TimerManager::startFastTimer(unsigned long duration, TimerCallback callback) {
-    for (int i = 0; i < MAX_FAST_TIMERS; i++) {
-        if (!fastTimers[i].isActive()) {
-            fastTimers[i].start(duration);
-            fastCallbacks[i] = callback;
-            fastDurations[i] = duration;
-            Serial.printf("✅ Fast timer gestart op index %d met duur %lu ms.\n", i, duration);
-            return i;
-        }
-    }
-    Serial.println("❌ GEEN VRIJE FAST TIMERS BESCHIKBAAR!");
-    return -1;
-}
-
-// ✅ **Medium en Slow Timers blijven zoals eerder gedefinieerd**
-int TimerManager::startMediumTimer(unsigned long duration, TimerCallback callback) {
-    for (int i = 0; i < MAX_MEDIUM_TIMERS; i++) {
-        if (!mediumTimers[i].isActive()) {
-            mediumTimers[i].start(duration);
-            mediumCallbacks[i] = callback;
-            mediumDurations[i] = duration;
-            Serial.printf("✅ Medium timer gestart op index %d met duur %lu ms.\n", i, duration);
-            return i;
-        }
-    }
-    Serial.println("❌ GEEN VRIJE MEDIUM TIMERS BESCHIKBAAR!");
-    return -1;
-}
-
-int TimerManager::startSlowTimer(unsigned long duration, TimerCallback callback) {
-    for (int i = 0; i < MAX_SLOW_TIMERS; i++) {
-        if (!slowTimers[i].isActive()) {
-            slowTimers[i].start(duration);
-            slowCallbacks[i] = callback;
-            slowDurations[i] = duration;
-            Serial.printf("✅ Slow timer gestart op index %d met duur %lu ms.\n", i, duration);
-            return i;
-        }
-    }
-    Serial.println("❌ GEEN VRIJE SLOW TIMERS BESCHIKBAAR!");
-    return -1;
-}
-
-// ✅ **Update alle timers (Fast, Medium, Slow)**
-void TimerManager::updateTimers() {
-    for (int i = 0; i < MAX_FAST_TIMERS; i++) {
-        if (fastTimers[i].isExpired() && fastCallbacks[i] != nullptr) {
-            Serial.printf("⏳ Fast timer %d verlopen, roep callback aan.\n", i);
-            fastCallbacks[i]();
-            Serial.printf("🔄 Fast timer %d herstart met %lu ms.\n", i, fastDurations[i]);  
-            fastTimers[i].start(fastDurations[i]);
-        }
-    }
-    for (int i = 0; i < MAX_MEDIUM_TIMERS; i++) {
-        if (mediumTimers[i].isExpired() && mediumCallbacks[i] != nullptr) {
-            Serial.printf("⏳ Medium timer %d verlopen, roep callback aan.\n", i);
-            mediumCallbacks[i]();
-            Serial.printf("🔄 Medium timer %d herstart met %lu ms.\n", i, mediumDurations[i]);  
-            mediumTimers[i].start(mediumDurations[i]);
-        }
-    }
-    for (int i = 0; i < MAX_SLOW_TIMERS; i++) {
-        if (slowTimers[i].isExpired() && slowCallbacks[i] != nullptr) {
-            Serial.printf("⏳ Slow timer %d verlopen, roep callback aan.\n", i);
-            slowCallbacks[i]();
-            Serial.printf("🔄 Slow timer %d herstart met %lu ms.\n", i, slowDurations[i]);  
-            slowTimers[i].start(slowDurations[i]);
-        }
-    }
-}
+ TimerManager::TimerManager() {
+     // Initialize all timers
+     for (int i = 0; i < MAX_ULTRAFAST_TIMERS; i++) {
+         ultraFastTimers[i] = DynTimer();
+         ultraFastCallbacks[i] = nullptr;
+         ultraFastDurations[i] = 0;
+     }
+     for (int i = 0; i < MAX_FAST_TIMERS; i++) {
+         fastTimers[i] = DynTimer();
+         fastCallbacks[i] = nullptr;
+         fastDurations[i] = 0;
+     }
+     for (int i = 0; i < MAX_MEDIUM_TIMERS; i++) {
+         mediumTimers[i] = DynTimer();
+         mediumCallbacks[i] = nullptr;
+         mediumDurations[i] = 0;
+     }
+     for (int i = 0; i < MAX_SLOW_TIMERS; i++) {
+         slowTimers[i] = DynTimer();
+         slowCallbacks[i] = nullptr;
+         slowDurations[i] = 0;
+     }
+ }
+ 
+ // Function to start an UltraFast Timer
+ int TimerManager::startUltraFastTimer(unsigned long duration, TimerCallback callback) {
+     for (int i = 0; i < MAX_ULTRAFAST_TIMERS; i++) {
+         if (!ultraFastTimers[i].isActive()) {  // Correcte methode
+             ultraFastTimers[i].start(duration);  // Correcte methode
+             ultraFastCallbacks[i] = callback;
+             ultraFastDurations[i] = duration;
+             return i;
+         }
+     }
+     return -1; // No available slot
+ }
+ 
+ // Function to start a Fast Timer
+ int TimerManager::startFastTimer(unsigned long duration, TimerCallback callback) {
+     for (int i = 0; i < MAX_FAST_TIMERS; i++) {
+         if (!fastTimers[i].isActive()) {
+             fastTimers[i].start(duration);
+             fastCallbacks[i] = callback;
+             fastDurations[i] = duration;
+             return i;
+         }
+     }
+     return -1;
+ }
+ 
+ // Function to start a Medium Timer
+ int TimerManager::startMediumTimer(unsigned long duration, TimerCallback callback) {
+     for (int i = 0; i < MAX_MEDIUM_TIMERS; i++) {
+         if (!mediumTimers[i].isActive()) {
+             mediumTimers[i].start(duration);
+             mediumCallbacks[i] = callback;
+             mediumDurations[i] = duration;
+             return i;
+         }
+     }
+     return -1;
+ }
+ 
+ // Function to start a Slow Timer
+ int TimerManager::startSlowTimer(unsigned long duration, TimerCallback callback) {
+     for (int i = 0; i < MAX_SLOW_TIMERS; i++) {
+         if (!slowTimers[i].isActive()) {
+             slowTimers[i].start(duration);
+             slowCallbacks[i] = callback;
+             slowDurations[i] = duration;
+             return i;
+         }
+     }
+     return -1;
+ }
+ 
+ // Function to update all timers
+ void TimerManager::updateTimers() {
+     for (int i = 0; i < MAX_ULTRAFAST_TIMERS; i++) {
+         if (ultraFastTimers[i].isExpired()) {
+             if (ultraFastCallbacks[i]) ultraFastCallbacks[i]();
+             ultraFastTimers[i].start(ultraFastDurations[i]);  // Correcte methode
+         }
+     }
+     for (int i = 0; i < MAX_FAST_TIMERS; i++) {
+         if (fastTimers[i].isExpired()) {
+             if (fastCallbacks[i]) fastCallbacks[i]();
+             fastTimers[i].start(fastDurations[i]);
+         }
+     }
+     for (int i = 0; i < MAX_MEDIUM_TIMERS; i++) {
+         if (mediumTimers[i].isExpired()) {
+             if (mediumCallbacks[i]) mediumCallbacks[i]();
+             mediumTimers[i].start(mediumDurations[i]);
+         }
+     }
+     for (int i = 0; i < MAX_SLOW_TIMERS; i++) {
+         if (slowTimers[i].isExpired()) {
+             if (slowCallbacks[i]) slowCallbacks[i]();
+             slowTimers[i].start(slowDurations[i]);
+         }
+     }
+ }
+ 
