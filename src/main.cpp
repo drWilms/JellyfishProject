@@ -4,9 +4,7 @@
 #include "JellyfishQueue.h"
 #include <FastLED.h>
 
-HighSpeedTimer highSpeed;
-MidSpeedTimer midSpeed;
-LowSpeedTimer lowSpeed;
+TimerManager timerManager;
 
 JellyfishQueue fastPrintQueue;  // Stores ':' and ';'
 JellyfishQueue midPrintQueue;   // Stores '*' and '#'
@@ -145,12 +143,16 @@ void setup() {
         ledFades[i].step = random(3, 10);  // Different speeds
     }
 
-    // === Add Timers (All Firing Independently) ===
-    highSpeed.addTimer(20, blinkLED);          // LED Blinking (20ms OFF, 17ms ON)
-    highSpeed.addTimer(50, fadeRGB);           // RGB LED Fading
-    midSpeed.addTimer(1000, processFastPrintQueue);  // Print from fast queue (1s)
-    lowSpeed.addTimer(17000, processMidPrintQueue);  // Print from mid queue (17s)
-    lowSpeed.addTimer(19000, processSlowPrintQueue); // Print from slow queue (19s)
+    // === **Gebruik FastTimer voor snelle taken** ===
+    timerManager.startFastTimer(20, blinkLED);          // LED Blinking (20ms)
+    timerManager.startFastTimer(50, fadeRGB);           // RGB LED Fading
+
+    // === **Medium Timers correct ingesteld** ===
+    timerManager.startMediumTimer(1000, processFastPrintQueue);  // Print van Fast Queue (1s)
+
+    // === **Slow Timers correct ingesteld** ===
+    timerManager.startSlowTimer(17000, processMidPrintQueue);  // Print van Mid Queue (17s)
+    timerManager.startSlowTimer(19000, processSlowPrintQueue); // Print van Slow Queue (19s)
 
     // === Fill Queues Initially ===
     fillFastPrintQueue();
@@ -159,7 +161,5 @@ void setup() {
 }
 
 void loop() {
-    highSpeed.update();
-    midSpeed.update();
-    lowSpeed.update();
+    timerManager.updateTimers();
 }

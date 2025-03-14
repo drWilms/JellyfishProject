@@ -1,48 +1,37 @@
 #ifndef TIMERMANAGER_H
 #define TIMERMANAGER_H
 
-#include <Arduino.h>
+#include "Arduino.h"
+#include "DynTimer.h"
 
-class Timer {
-private:
-    unsigned long interval;
-    unsigned long lastRun;
-    void (*callback)();
+#define MAX_FAST_TIMERS 5
+#define MAX_MEDIUM_TIMERS 5
+#define MAX_SLOW_TIMERS 5
 
-public:
-    Timer(unsigned long interval, void (*callback)());
-    bool shouldRun() const;
-    void reset();
-    void execute();
-};
+typedef void (*TimerCallback)();
 
 class TimerManager {
-protected:
-    static const int MAX_TIMERS = 10;
-    Timer* timers[MAX_TIMERS];
-    int timerCount;
+private:
+    DynTimer fastTimers[MAX_FAST_TIMERS];  // ✅ **Nieuw**
+    TimerCallback fastCallbacks[MAX_FAST_TIMERS];
+    unsigned long fastDurations[MAX_FAST_TIMERS];
+
+    DynTimer mediumTimers[MAX_MEDIUM_TIMERS];
+    TimerCallback mediumCallbacks[MAX_MEDIUM_TIMERS];
+    unsigned long mediumDurations[MAX_MEDIUM_TIMERS];
+
+    DynTimer slowTimers[MAX_SLOW_TIMERS];
+    TimerCallback slowCallbacks[MAX_SLOW_TIMERS];
+    unsigned long slowDurations[MAX_SLOW_TIMERS];
 
 public:
     TimerManager();
-    ~TimerManager();  // Destructor to prevent memory leaks
-    void addTimer(unsigned long interval, void (*callback)());
-    void update();
+    
+    int startFastTimer(unsigned long duration, TimerCallback callback);  // ✅ **Nieuw**
+    int startMediumTimer(unsigned long duration, TimerCallback callback);
+    int startSlowTimer(unsigned long duration, TimerCallback callback);
+    
+    void updateTimers();
 };
 
-// Tiered Timer Managers
-class HighSpeedTimer : public TimerManager {
-public:
-    HighSpeedTimer();
-};
-
-class MidSpeedTimer : public TimerManager {
-public:
-    MidSpeedTimer();
-};
-
-class LowSpeedTimer : public TimerManager {
-public:
-    LowSpeedTimer();
-};
-
-#endif  // TIMERMANAGER_H
+#endif // TIMERMANAGER_H
