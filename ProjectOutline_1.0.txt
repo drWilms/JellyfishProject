@@ -1,3 +1,10 @@
+For ChatGPT:
+-no emoji'scheduling
+-no canvas
+-only produce code when asked to
+-your have access to https://github.com/drWilms/JellyfishProject.git
+
+
  Stage 1: Setting Up FreeRTOS (Basic Framework)
 ✅ Verify JF_RTOS GitHub branch & PlatformIO project.
 ✅ Install & configure FreeRTOS in PlatformIO.

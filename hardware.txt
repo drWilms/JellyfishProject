@@ -1,0 +1,4 @@
+usb aansluiting
+i2c aansluitingen
+speaker op lege pcb?
+losse 5v stabilisator?

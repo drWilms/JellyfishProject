@@ -1,0 +1,14 @@
+# JellyfishAudio - Keyword Definitions
+
+JellyfishAudio   KEYWORD1
+playTrack        KEYWORD2
+stopTrack        KEYWORD2
+pauseTrack       KEYWORD2
+resumeTrack      KEYWORD2
+isPlaying        KEYWORD2
+getAudioLevel    KEYWORD2
+setVolume        KEYWORD2
+getVolume        KEYWORD2
+fadeIn           KEYWORD2
+fadeOut          KEYWORD2
+setPlaylist      KEYWORD2
