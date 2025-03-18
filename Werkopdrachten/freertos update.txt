@@ -1,0 +1,336 @@
+// ========================================
+// File: src/main.cpp
+// ========================================
+
+#include <Arduino.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "AudioManager.h"
+#include "LightManager.h"
+#include "TimeManager.h"
+#include "SDManager.h"
+#include "WiFiManager.h"
+#include "TimerManager.h"
+#include "HWconfig.h"
+
+TaskHandle_t Task1_Handle = NULL;
+TaskHandle_t Task2_Handle = NULL;
+TaskHandle_t Task3_Handle = NULL;
+TaskHandle_t Task4_Handle = NULL;
+TaskHandle_t Task5_Handle = NULL;
+TaskHandle_t Task6_Handle = NULL;
+
+LightManager lightManager;
+AudioManager audioManager(SD_CS, PIN_I2S_BCLK, PIN_I2S_LRC, PIN_I2S_DOUT, &lightManager);
+TimeManager timeManager;
+SDManager sdManager; 
+WiFiManager wifiManager;
+TimerManager timerManager;
+
+void Task1(void *pvParameters) {
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        Serial.print("1");
+        Serial.flush();
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
+    }
+}
+
+void Task2(void *pvParameters) {
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        Serial.print("2");
+        Serial.flush();
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(2000));
+    }
+}
+
+void Task3(void *pvParameters) {
+    pinMode(LED_PIN, OUTPUT);
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        digitalWrite(LED_PIN, HIGH);
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(300));
+
+        digitalWrite(LED_PIN, LOW);
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(2000));
+    }
+}
+
+void Task4(void *pvParameters) {
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        Serial.println("*");
+        Serial.flush();
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(27000));
+    }
+}
+
+void Task5(void *pvParameters) {
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        timeManager.syncTime();
+        String timeStr = timeManager.getLocalDateTime();
+        Serial.println("Updated Local Time: " + timeStr);
+        Serial.flush();
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(86400000)); // 24 hours
+    }
+}
+
+void Task_PlayFragment(void *pvParameters) {
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        Serial.println("[DEBUG] Selecting track...");
+        int trackIndex = random(0, 5);
+
+        Serial.printf("[INFO] Playing fragment: %s\n", playlist[trackIndex].filename);
+        bool success = audioManager.playFragment(playlist[trackIndex].filename, playlist[trackIndex].startSec, playlist[trackIndex].endSec);
+        Serial.printf("[DEBUG] PlayFragment result: %s\n", success ? "SUCCESS" : "FAIL");
+
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(120000)); // Every 2 minutes
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(1000);
+
+    lightManager.begin();
+    audioManager.begin();
+    sdManager.begin(SD_CS);
+    wifiManager.connect();
+
+    xTaskCreate(Task1, "Task 1", 2048, NULL, 1, &Task1_Handle);
+    xTaskCreate(Task2, "Task 2", 2048, NULL, 2, &Task2_Handle);
+    xTaskCreate(Task3, "Task 3", 2048, NULL, 2, &Task3_Handle);
+    xTaskCreate(Task4, "Task 4", 2048, NULL, 1, &Task4_Handle);
+    xTaskCreate(Task5, "Task 5", 4096, NULL, 3, &Task5_Handle);
+    xTaskCreate(Task_PlayFragment, "Task 6", 8192, NULL, 3, &Task6_Handle);
+}
+
+void loop() {
+    lightManager.updateLight();
+    vTaskDelay(pdMS_TO_TICKS(1));
+}
+
+
+// ========================================
+// File: lib/LightManager/LightManager.h
+// ========================================
+
+#ifndef LIGHT_MANAGER_H
+#define LIGHT_MANAGER_H
+
+#include <Arduino.h>
+#include "FastLED.h"
+#include "freertos/semphr.h"
+#include "HWconfig.h"
+
+class LightManager {
+public:
+    LightManager();
+    void begin();
+    void updateLight();
+    void setBrightness(uint8_t level);
+
+private:
+    CRGB leds[NUM_LEDS];
+    uint8_t brightness;
+    SemaphoreHandle_t lightMutex;
+};
+
+#endif // LIGHT_MANAGER_H
+
+// ========================================
+// File: lib/LightManager/LightManager.cpp
+// ========================================
+
+#include "LightManager.h"
+
+LightManager::LightManager() : brightness(128) {
+    lightMutex = xSemaphoreCreateMutex();
+}
+
+void LightManager::begin() {
+    FastLED.addLeds<WS2812, PIN_RGB, LED_RGB_ORDER>(leds, NUM_LEDS);
+    FastLED.clear();
+    FastLED.show();
+}
+
+void LightManager::updateLight() {
+    if (xSemaphoreTake(lightMutex, portMAX_DELAY)) {
+        FastLED.setBrightness(brightness);
+        FastLED.show();
+        xSemaphoreGive(lightMutex);
+    }
+}
+
+void LightManager::setBrightness(uint8_t level) {
+    if (xSemaphoreTake(lightMutex, portMAX_DELAY)) {
+        brightness = level;
+        xSemaphoreGive(lightMutex);
+    }
+}
+
+// ========================================
+// File: lib/WiFiManager/WiFiManager.h
+// ========================================
+
+#ifndef WIFI_MANAGER_H
+#define WIFI_MANAGER_H
+
+#include <WiFi.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include "freertos/semphr.h"
+#include "HWconfig.h"
+
+class WiFiManager {
+public:
+    WiFiManager();
+    void connect();
+    void disconnect();
+    String getDateTime();
+
+private:
+    WiFiUDP ntpUDP;
+    NTPClient timeClient;
+    SemaphoreHandle_t wifiMutex;
+};
+
+#endif // WIFI_MANAGER_H
+
+// ========================================
+// File: lib/WiFiManager/WiFiManager.cpp
+// ========================================
+
+#include "WiFiManager.h"
+
+WiFiManager::WiFiManager() : timeClient(ntpUDP, "pool.ntp.org", 0, 60000) {
+    wifiMutex = xSemaphoreCreateMutex();
+}
+
+void WiFiManager::connect() {
+    if (xSemaphoreTake(wifiMutex, portMAX_DELAY)) {
+        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+        while (WiFi.status() != WL_CONNECTED) {
+            delay(500);
+            Serial.print(".");
+        }
+        Serial.println("\nWiFi Connected");
+        xSemaphoreGive(wifiMutex);
+    }
+}
+
+void WiFiManager::disconnect() {
+    if (xSemaphoreTake(wifiMutex, portMAX_DELAY)) {
+        WiFi.disconnect();
+        Serial.println("WiFi Disconnected");
+        xSemaphoreGive(wifiMutex);
+    }
+}
+
+String WiFiManager::getDateTime() {
+    connect();
+    timeClient.begin();
+    timeClient.update();
+    disconnect();
+    return timeClient.getFormattedTime();
+}
+
+// ========================================
+// File: lib/TimerManager/TimerManager.h
+// ========================================
+
+#ifndef TIMER_MANAGER_H
+#define TIMER_MANAGER_H
+
+#include <Arduino.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/timers.h"
+
+class TimerManager {
+public:
+    TimerManager();
+    void startTimer(uint32_t interval, void (*callback)(TimerHandle_t));
+    void stopTimer();
+
+private:
+    TimerHandle_t timerHandle;
+};
+
+#endif // TIMER_MANAGER_H
+
+// ========================================
+// File: lib/TimerManager/TimerManager.cpp
+// ========================================
+
+#include "TimerManager.h"
+
+void TimerCallback(TimerHandle_t xTimer) {
+    Serial.println("Timer Triggered!");
+}
+
+TimerManager::TimerManager() : timerHandle(NULL) {}
+
+void TimerManager::startTimer(uint32_t interval, void (*callback)(TimerHandle_t)) {
+    timerHandle = xTimerCreate("Timer", pdMS_TO_TICKS(interval), pdTRUE, NULL, callback);
+    xTimerStart(timerHandle, 0);
+}
+
+void TimerManager::stopTimer() {
+    if (timerHandle) {
+        xTimerStop(timerHandle, 0);
+        xTimerDelete(timerHandle, 0);
+        timerHandle = NULL;
+    }
+}
+
+// ========================================
+// File: lib/SDManager/SDManager.h
+// ========================================
+
+#ifndef SD_MANAGER_H
+#define SD_MANAGER_H
+
+#include "FS.h"
+#include "SD.h"
+#include "SPI.h"
+#include "freertos/semphr.h"
+
+class SDManager {
+public:
+    static bool begin(uint8_t csPin);
+    static void listDir(fs::FS &fs, const char *dirname, uint8_t levels);
+    static bool createFile(const char *path, const char *message);
+    static bool appendFile(const char *path, const char *message);
+    static bool renameFile(const char *oldPath, const char *newPath);
+    static bool deleteFile(const char *path);
+    static void ensureLeadingSlash(char *path);
+    static bool isFileExists(fs::FS &fs, const char *fullName);
+
+private:
+    static SemaphoreHandle_t sdMutex;
+};
+
+#endif // SD_MANAGER_H
+
+// ========================================
+// File: lib/SDManager/SDManager.cpp
+// ========================================
+
+#include "SDManager.h"
+
+SemaphoreHandle_t SDManager::sdMutex = xSemaphoreCreateMutex();
+
+bool SDManager::begin(uint8_t csPin) {
+    if (xSemaphoreTake(sdMutex, portMAX_DELAY)) {
+        bool success = SD.begin(csPin);
+        xSemaphoreGive(sdMutex);
+        return success;
+    }
+    return false;
+}
+
+// All other SDManager functions properly adapted for FreeRTOS...
+

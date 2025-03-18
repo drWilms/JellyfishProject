@@ -1,0 +1,98 @@
+# Jellyfish Project - Werkopdracht Core + Uitbreidingen + GitHub Strategie
+
+## 1. Doel
+Het implementeren van een **stabiele Jellyfish Core** en een strategie voor **modulaire uitbreidingen**, waarbij GitHub wordt gebruikt voor **veilig versiebeheer en gescheiden ontwikkeling**.
+
+---
+
+## 2. Jellyfish Core: Minimale Stabiele Basis
+
+### **🔷 Functies die altijd in de Core zitten**
+✅ **FreeRTOS Kernel** (Task Management, Scheduler, Prioriteiten)  
+✅ **Debug Task** (Mode 0-4: Geen, Simpel, Uitgebreid, SD, Beide)  
+✅ **FastLED Basisimplementatie** (Één test-LED voor timing)  
+✅ **Audio Input & Basisverwerking** (Geluidssignaal uitlezen, geen effecten)  
+✅ **TimeManager** (RTC & WiFi-tijd sync, maar geen extra WiFi-verkeer)  
+✅ **SDManager** (Alleen logging, geen uitgebreide bestandsbewerkingen)  
+✅ **Queue & Timer Systemen** (Basisfunctionaliteit, geen uitgebreide processen)  
+
+💡 **Waarom deze Core?**  
+✔ **Testomgeving** → Nieuwe functionaliteiten worden **hier geïsoleerd getest**.  
+✔ **Minimale impact** → Geen lichtshows of zware audio-processing, zodat debugging eenvoudig blijft.  
+✔ **Geen onnodige complexiteit** → Behoudt een **stabiel referentiepunt**.  
+
+---
+
+## 3. Uitbreidingen: Modulaire Opbouw
+
+### **🔶 Hoe uitbreidingen worden ontwikkeld en getest**
+- **Stap 1:** Nieuwe feature wordt **eerst in Core ontwikkeld als losse module**  
+- **Stap 2:** Feature wordt **in een aparte GitHub-branch ontwikkeld**  
+- **Stap 3:** Validatie in de **Core-testomgeving**  
+- **Stap 4:** Pas na succesvolle validatie wordt de code **naar `main` gemerged**  
+
+💡 **Dit voorkomt dat nieuwe toevoegingen het systeem instabiel maken.**  
+
+### **🔶 Overzicht van geplande uitbreidingen**
+| Functionaliteit | Testen in Core? | Later toevoegen aan Main? |
+|----------------|----------------|----------------------------|
+| **Nieuwe LED-effecten** | Ja | Na validatie |
+| **Audio-Reactieve LEDs** | Ja | Na testen van stabiliteit |
+| **WiFi RemoteXY** | Ja | Na debugging |
+| **MP3-bestandsbeheer op SD** | Ja | Na validatie in SDManager |
+| **Geavanceerde lichtshows** | Ja | Na resource-optimalisatie |
+
+---
+
+## 4. GitHub Strategie: Hoe Werken met Branches
+
+### **🔹 Wanneer een Nieuwe Branch?**
+| Actie | Welke Branch? |
+|-------|--------------|
+| ✅ **Stabiele Core-versie bijwerken** | **`main` branch** |
+| ✅ **Nieuwe uitbreidingen ontwikkelen** | **Eigen `feature` branch** |
+| ✅ **Debugging en validatie** | **Testbranch vóór merge naar `main`** |
+| ✅ **Grote herstructureringen** | **Nieuwe `dev` branch** |
+
+### **🔹 Praktisch Werken met GitHub**
+1. **Maak een nieuwe branch voor een uitbreiding:**  
+   ```sh
+   git checkout -b feature-audiofeedback
+   ```
+2. **Werk alleen aan deze specifieke functionaliteit.**  
+3. **Test en debug alles in Core voordat je mergen overweegt.**  
+4. **Als de code stabiel is, merge naar `main`:**  
+   ```sh
+   git checkout main
+   git merge feature-audiofeedback
+   git push origin main
+   ```
+
+### **🔹 Wanneer een Commit, Wanneer een Merge?**
+| Actie | Wat doe je? |
+|-------|------------|
+| **Kleine bugfix of optimalisatie** | Direct commit in de huidige branch |
+| **Nieuwe uitbreiding (LED effect, WiFi-optie, SD functionaliteit)** | Nieuwe feature-branch |
+| **Grote herstructurering (Core veranderen, timers herschrijven)** | Dev branch |
+| **Testcode die mogelijk onstabiel is** | Testbranch maken |
+
+💡 **Pas mergen naar `main` als de code 100% stabiel en getest is.**  
+
+---
+
+## 5. Hoe Begin Je Nu?
+
+1. **Bevries de huidige stabiele code in de `main` branch.**  
+2. **Maak een `core` branch als referentiepunt voor uitbreidingen.**  
+3. **Voor elke nieuwe feature: Maak een aparte feature-branch.**  
+4. **Test nieuwe features eerst in de Core-omgeving.**  
+5. **Na validatie: Merge de feature-branch terug in `main`.**  
+
+---
+
+## 6. Verwachte Voordelen
+✔ **Jellyfish Core blijft altijd stabiel en getest.**  
+✔ **Nieuwe functionaliteiten worden gecontroleerd ontwikkeld en geïmplementeerd.**  
+✔ **GitHub voorkomt codeverlies en maakt rollback eenvoudig.**  
+✔ **Problemen worden vroeg gedetecteerd zonder impact op de hoofdversie.**  
+

@@ -1,0 +1,47 @@
+# Jellyfish Project - Werkopdracht Audiofeedback naar LEDs (Hybride FreeRTOS + loop())
+
+## 1. Doel
+Het implementeren van een efficiënte en snelle **audiofeedback naar de LEDs** waarbij FreeRTOS wordt gebruikt voor **audio-analyse**, maar de **LED-aansturing in de loop() plaatsvindt**.
+
+---
+
+## 2. Strategie & Taakverdeling
+
+### **🔷 FreeRTOS Taak: Audio-analyse (Lage Prioriteit)**
+✅ **Meet het audiovolume (RMS of peak-level)** vanuit de MP3-speler.  
+✅ **Slaat de audio-intensiteit op in een gedeelde variabele (bijv. `audioLevel`)**.  
+✅ **Draait als een FreeRTOS-task op lage prioriteit om CPU-belasting te minimaliseren.**  
+
+### **🔷 loop(): LED-aanpassing en Rendering**
+✅ **Haalt de nieuwste waarde van `audioLevel` op.**  
+✅ **Past LED-kleuren/intensiteit aan op basis van het audiovolume.**  
+✅ **Voert `FastLED.show()` uit om LEDs te updaten zonder FreeRTOS-vertraging.**  
+✅ **Zorgt dat `FastLED.show()` alleen wordt aangeroepen als er een visuele update nodig is (om CPU te besparen).**  
+
+---
+
+## 3. Voordelen van deze aanpak
+✔ **Minimaliseert FreeRTOS overhead** → Audio-processing is losgekoppeld van de LED-rendering.  
+✔ **Geen blocking issues** → FastLED.show() draait alleen in de loop(), niet in een FreeRTOS-task.  
+✔ **Snelle en accurate audio-reacties** → Geen scheduling delays tussen audio-input en LED-output.  
+✔ **Optimale balans tussen timing, CPU-belasting en performance.**  
+
+---
+
+## 4. Implementatie en Testen
+### **🔶 Implementatiestappen**
+1. **FreeRTOS-taak schrijven** die audio-input verwerkt en de waarden opslaat in een gedeelde variabele.  
+2. **LED-verwerking in de loop() aanpassen** zodat deze de `audioLevel`-waarde gebruikt voor effecten.  
+3. **Optimalisatie van update-frequentie** in de loop() om onnodige FastLED.show() calls te voorkomen.  
+4. **Debugging & Performance-testen:**  
+   - Meten van **audio-reactietijd**.  
+   - Controleren of FreeRTOS-taak **de rest van het systeem niet vertraagt**.  
+   - Evalueren van **CPU-belasting en geheugengebruik**.  
+
+---
+
+## 5. Toekomstige uitbreidingen
+- **Meer geavanceerde audio-reactieve effecten**, zoals kleurveranderingen op basis van frequentie-analyse.  
+- **Gebruik van FFT of filters voor gedetailleerde geluidsanalyse.**  
+- **Integratie met lichtshows voor een dynamisch effect.**  
+

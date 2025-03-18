@@ -1,0 +1,673 @@
+Merged JellyfishProject Code (Generated on 2025-03-16_14-02) 
+===================================================== 
+======================================= 
+File: src\main.cpp 
+======================================= 
+/**
+ * @file main.cpp
+ * @brief Jellyfish Project - Main Program
+ * @author Jan Wilms
+ * @date 2025-03-16 10:26 (Amsterdam Time)
+ */
+
+ #include <Arduino.h>
+ #include "freertos/FreeRTOS.h"
+ #include "freertos/task.h"
+ #include "AudioManager.h"
+ #include "LightManager.h"
+ #include "TimeManager.h"
+ #include "SDManager.h"
+ #include "HWconfig.h"
+ 
+ // Task Handles
+ TaskHandle_t Task1_Handle = NULL;
+ TaskHandle_t Task2_Handle = NULL;
+ TaskHandle_t Task3_Handle = NULL;
+ TaskHandle_t Task4_Handle = NULL;
+ TaskHandle_t Task5_Handle = NULL;
+ 
+ LightManager lightManager;
+ AudioManager audioManager(SD_CS, PIN_I2S_BCLK, PIN_I2S_LRC, PIN_I2S_DOUT, &lightManager);
+ TimeManager timeManager;
+ SDManager sdManager; 
+ 
+ // === Task 1: Prints "1" every 1 second ===
+ void Task1(void *pvParameters) {
+     TickType_t lastWakeTime = xTaskGetTickCount();
+     while (1) {
+         Serial.print("1");
+         Serial.flush();
+         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
+     }
+ }
+ 
+ // === Task 2: Prints "2" every 2 seconds ===
+ void Task2(void *pvParameters) {
+     TickType_t lastWakeTime = xTaskGetTickCount();
+     while (1) {
+         Serial.print("2");
+         Serial.flush();
+         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(2000));
+     }
+ }
+ 
+ // === Task 3: Blinks onboard LED (0.3s ON, 2s OFF) ===
+ void Task3(void *pvParameters) {
+     pinMode(LED_PIN, OUTPUT);
+     TickType_t lastWakeTime = xTaskGetTickCount();
+     while (1) {
+         digitalWrite(LED_PIN, HIGH);
+         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(300));
+ 
+         digitalWrite(LED_PIN, LOW);
+         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(2000));
+     }
+ }
+ 
+ // === Task 4: Prints "*" every 27 seconds ===
+ void Task4(void *pvParameters) {
+     TickType_t lastWakeTime = xTaskGetTickCount();
+     while (1) {
+         Serial.println("*");
+         Serial.flush();
+         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(27000));
+     }
+ }
+ 
+ // === Task 5: Syncs Time Every 24 Hours ===
+ void Task5(void *pvParameters) {
+     TickType_t lastWakeTime = xTaskGetTickCount();
+     while (1) {
+         timeManager.syncTime();
+         String timeStr = timeManager.getLocalDateTime();
+         Serial.println("Updated Local Time: " + timeStr);
+         Serial.flush();
+         vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(86400000)); // 24 hours
+     }
+ }
+ 
+ void setup() {
+    Serial.begin(115200);
+    delay(1000);
+
+    // Initialize Light and Audio Managers
+    lightManager.begin();
+    audioManager.begin();
+
+    // ✅ Test SDManager file existence function
+    if (sdManager.begin(SD_CS)) {
+        Serial.println("SD Card Initialized.");
+        bool fileExists = sdManager.isFileExists(SD, "/97/004  hot  rats.mp3");
+        Serial.printf("Test Result: File Exists? %s\n", fileExists ? "YES" : "NO");
+    } else {
+        Serial.println("[ERROR] SD Card Initialization Failed!");
+    }
+
+    // Create FreeRTOS tasks (all previous tasks remain)
+    xTaskCreate(Task1, "Task 1", 2048, NULL, 1, &Task1_Handle);
+    xTaskCreate(Task2, "Task 2", 2048, NULL, 2, &Task2_Handle);
+    xTaskCreate(Task3, "Task 3", 2048, NULL, 2, &Task3_Handle);
+    xTaskCreate(Task4, "Task 4", 2048, NULL, 1, &Task4_Handle);
+    xTaskCreate(Task5, "Task 5", 4096, NULL, 3, &Task5_Handle);
+}
+ 
+ // === loop() runs Light & Audio Updates ===
+ void loop() {
+     lightManager.updateLight();  // Handles LED fading
+     audioManager.loop();         // Handles MP3 playback
+     vTaskDelay(pdMS_TO_TICKS(1));
+ }
+  
+======================================= 
+Library: lib\config 
+======================================= 
+======================================= 
+File: lib\config\config_secrets.h 
+======================================= 
+#ifndef CONFIG_SECRETS_H
+#define CONFIG_SECRETS_H
+
+#define WIFI_SSID "keijebijter"
+#define WIFI_PASSWORD "Helmondia'55"
+
+#endif // CONFIG_SECRETS_H
+ 
+======================================= 
+File: lib\config\HWconfig.h 
+======================================= 
+
+ #ifndef HWCONFIG_H
+ #define HWCONFIG_H
+ 
+ #include <Arduino.h>
+ #include "config_secrets.h"
+ 
+ // ======================= Pin Definitions =======================
+ #define LED_PIN        2   // Built-in LED
+ #define PIN_RGB        4   // LED Data Out
+ #define PIN_I2S_DOUT   14  // I2S Data
+ #define PIN_I2S_BCLK   13  // I2S Bit Clock
+ #define PIN_I2S_LRC    15  // I2S Left/Right Clock
+ #define PIN_SD_CS      5   // SD Card Chip Select
+ 
+ // SPI/I2C Pins
+ #define SDA           21
+ #define SCL           22
+ #define SD_CS          5
+ #define SPI_MOSI      23
+ #define SPI_MISO      19
+ #define SPI_SCK       18
+ 
+ // ======================= LED Configuration =======================
+ #define NUM_LEDS      10      // Number of LEDs
+ #define LED_TYPE      WS2812   // LED Type
+ #define LED_RGB_ORDER GRB      // RGB Order
+ 
+
+ 
+ #endif  // HWCONFIG_H
+  
+======================================= 
+Library: lib\AudioManager 
+======================================= 
+======================================= 
+File: lib\AudioManager\AudioManager.h 
+======================================= 
+#ifndef AUDIO_MANAGER_H
+#define AUDIO_MANAGER_H
+
+#include <Arduino.h>
+#include <SD.h>
+#include <AudioGeneratorMP3.h>
+#include <AudioFileSourceSD.h>
+#include <AudioOutputI2S.h>  // Direct I2S Output
+#include "LightManager.h"
+#include "HWconfig.h"
+
+struct PlaylistEntry {
+    const char* filename;
+    unsigned long startSec;
+    unsigned long endSec;
+};
+
+class AudioManager {
+public:
+    AudioManager(uint8_t csPin, uint8_t bclkPin, uint8_t lrcPin, uint8_t doutPin, LightManager* lightManager);
+
+    void begin();
+    void loop();
+    bool playFragment(const char* filename, unsigned long startSec, unsigned long endSec);
+    void stop();
+    int getAudioLevel();
+    void setPlaylist(PlaylistEntry* list, size_t size);
+    bool playNext();
+    bool isPlaying();
+
+private:
+    class AudioOutputI2SWithLevel; // Forward declaration
+
+    uint8_t _csPin, _bclkPin, _lrcPin, _doutPin;
+    AudioFileSourceSD* file;
+    AudioGeneratorMP3* mp3;
+    AudioOutputI2SWithLevel* audioOutput;
+
+    unsigned long fragmentStartTime, fragmentDuration;
+    bool playingFragment;
+    LightManager* lightManager;
+    PlaylistEntry* playlist;
+    size_t playlistSize;
+    size_t currentTrack;
+    bool isFadingOut;
+};
+
+#endif
+ 
+======================================= 
+File: lib\AudioManager\AudioManager.cpp 
+======================================= 
+#include "AudioManager.h"
+
+// === AudioOutputI2SWithLevel Class (Inside .cpp) ===
+class AudioManager::AudioOutputI2SWithLevel : public AudioOutputI2S {
+public:
+    AudioOutputI2SWithLevel() : audioLevel(0), currentGain(1.0f) {}
+
+    bool SetGain(float gain) override {
+        currentGain = gain;
+        return AudioOutputI2S::SetGain(gain);
+    }
+
+    float getCurrentGain() const { return currentGain; }
+
+    bool ConsumeSample(int16_t sample[2]) override {
+        sample[0] = (int16_t)(sample[0] * currentGain);
+        sample[1] = (int16_t)(sample[1] * currentGain);
+        audioLevel = (abs(sample[0]) + abs(sample[1])) / 2;
+        return AudioOutputI2S::ConsumeSample(sample);
+    }
+
+    int getAudioLevel() { return audioLevel; }
+
+private:
+    int audioLevel;
+    float currentGain;
+};
+
+// === AudioManager Implementation ===
+AudioManager::AudioManager(uint8_t csPin, uint8_t bclkPin, uint8_t lrcPin, uint8_t doutPin, LightManager* lightManager)
+    : _csPin(csPin), _bclkPin(bclkPin), _lrcPin(lrcPin), _doutPin(doutPin),
+      file(nullptr), mp3(nullptr), audioOutput(nullptr),
+      fragmentStartTime(0), fragmentDuration(0), playingFragment(false),
+      lightManager(lightManager), playlist(nullptr), playlistSize(0), currentTrack(0), isFadingOut(false) {}
+
+void AudioManager::begin() {
+    if (!SD.begin(_csPin)) {
+        Serial.println("SD Card Mount Failed!");
+        while (1);
+    }
+    Serial.println("SD Card Mounted!");
+
+    audioOutput = new AudioOutputI2SWithLevel();
+    audioOutput->SetPinout(_bclkPin, _lrcPin, _doutPin);
+    audioOutput->SetOutputModeMono(false);
+    audioOutput->SetRate(44100);
+    audioOutput->SetGain(1.0);
+
+    mp3 = new AudioGeneratorMP3();
+}
+
+bool AudioManager::playFragment(const char* filename, unsigned long startSec, unsigned long endSec) {
+    stop();
+
+    file = new AudioFileSourceSD(filename);
+    if (!file) {
+        Serial.printf("Failed to open file: %s\n", filename);
+        return false;
+    }
+
+    const unsigned long bytesPerSec = 16000;
+    unsigned long startOffset = startSec * bytesPerSec;
+    file->seek(startOffset, SEEK_SET);
+
+    if (!mp3->begin(file, audioOutput)) {
+        Serial.println("MP3 playback failed to start!");
+        return false;
+    }
+
+    fragmentDuration = (endSec - startSec) * 1000;
+    fragmentStartTime = millis();
+    playingFragment = true;
+    isFadingOut = false;
+
+    Serial.printf("Playing fragment from %lu s to %lu s\n", startSec, endSec);
+    
+    audioOutput->SetGain(0);
+    return true;
+}
+
+void AudioManager::loop() {
+    if (playingFragment && mp3 && mp3->isRunning()) {
+        mp3->loop();
+        unsigned long elapsedTime = millis() - fragmentStartTime;
+
+        if (elapsedTime < 3000) {
+            audioOutput->SetGain((float)elapsedTime / 3000.0);
+        } else if (fragmentDuration - elapsedTime < 3000) {
+            audioOutput->SetGain((float)(fragmentDuration - elapsedTime) / 3000.0);
+            isFadingOut = true;
+        } else {
+            audioOutput->SetGain(1.0);
+        }
+    } else if (playingFragment) {
+        Serial.println("Fragment finished. Moving to next track...");
+        playingFragment = false;
+        playNext();
+    }
+}
+
+void AudioManager::stop() {
+    if (mp3 && mp3->isRunning()) {
+        mp3->stop();
+    }
+    playingFragment = false;
+}
+
+int AudioManager::getAudioLevel() {
+    return audioOutput ? audioOutput->getAudioLevel() : 0;
+}
+
+void AudioManager::setPlaylist(PlaylistEntry* list, size_t size) {
+    playlist = list;
+    playlistSize = size;
+    currentTrack = 0;
+}
+
+bool AudioManager::playNext() {
+    if (currentTrack >= playlistSize) {
+        Serial.println("End of playlist reached. Stopping playback.");
+        currentTrack = 0;
+        playingFragment = false;
+        audioOutput->stop();
+        return false;
+    }
+
+    PlaylistEntry entry = playlist[currentTrack];
+    currentTrack++;
+
+    return playFragment(entry.filename, entry.startSec, entry.endSec);
+}
+
+bool AudioManager::isPlaying() {
+    return playingFragment;
+}
+ 
+======================================= 
+Library: lib\LightManager 
+======================================= 
+======================================= 
+File: lib\LightManager\LightManager.h 
+======================================= 
+#ifndef LIGHT_MANAGER_H
+#define LIGHT_MANAGER_H
+
+#include <Arduino.h>
+#include "FastLED.h"
+#include "HWconfig.h"
+
+class LightManager {
+public:
+    LightManager();
+    void begin();
+    void updateFadingEffect();
+    void updateLight();
+
+private:
+    CRGB leds[NUM_LEDS];
+    float brightnessFactor;
+    uint32_t lastUpdateTime;
+    const uint16_t fadeInterval = 10;
+};
+
+#endif
+ 
+======================================= 
+File: lib\LightManager\LightManager.cpp 
+======================================= 
+#include "LightManager.h"
+
+LightManager::LightManager() : brightnessFactor(0), lastUpdateTime(0) {}
+
+void LightManager::begin() {
+    FastLED.addLeds<WS2812, PIN_RGB, LED_RGB_ORDER>(leds, NUM_LEDS);
+    FastLED.clear();
+    FastLED.show();
+}
+
+void LightManager::updateFadingEffect() {
+    uint32_t currentTime = millis();
+
+    if (currentTime - lastUpdateTime >= fadeInterval) {
+        lastUpdateTime = currentTime;
+        
+        brightnessFactor += 0.05;
+        if (brightnessFactor >= TWO_PI) brightnessFactor = 0;
+
+        float brightness = (sin(brightnessFactor) + 1.0) / 2.0;
+        uint8_t scaledBrightness = (uint8_t)(brightness * 255);
+
+        for (int i = 0; i < NUM_LEDS; i++) {
+            leds[i] = CRGB(scaledBrightness, scaledBrightness, scaledBrightness);
+        }
+        FastLED.show();
+    }
+}
+
+void LightManager::updateLight() {
+    updateFadingEffect();
+}
+ 
+======================================= 
+Library: lib\WiFiManager 
+======================================= 
+======================================= 
+File: lib\WiFiManager\WiFiManager.h 
+======================================= 
+#ifndef WIFI_MANAGER_H
+#define WIFI_MANAGER_H
+
+#include <WiFi.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include "HWconfig.h"
+
+class WiFiManager {
+public:
+    WiFiManager();
+    void connect();
+    void disconnect();
+    String getDateTime(); // Fetches date/time
+private:
+    WiFiUDP ntpUDP;
+    NTPClient timeClient;
+};
+
+#endif // WIFI_MANAGER_H
+ 
+======================================= 
+File: lib\WiFiManager\WiFiManager.cpp 
+======================================= 
+#include "WiFiManager.h"
+
+WiFiManager::WiFiManager() : timeClient(ntpUDP, "pool.ntp.org", 0, 60000) {}
+
+void WiFiManager::connect() {
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    uint8_t attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 10) {
+        delay(1000);
+        Serial.print(".");
+        attempts++;
+    }
+    Serial.println(WiFi.status() == WL_CONNECTED ? "\nWiFi Connected" : "\nWiFi Failed");
+}
+
+void WiFiManager::disconnect() {
+    WiFi.disconnect();
+    WiFi.mode(WIFI_OFF);
+    Serial.println("WiFi Disconnected");
+}
+
+String WiFiManager::getDateTime() {
+    connect();
+    if (WiFi.status() == WL_CONNECTED) {
+        timeClient.begin();
+        timeClient.update();
+        disconnect();
+        return timeClient.getFormattedTime();
+    }
+    return "No Time";
+}
+ 
+WARNING: lib\TimerManager not found Skipping... 
+======================================= 
+Library: lib\SDManager 
+======================================= 
+======================================= 
+File: lib\SDManager\SDManager.h 
+======================================= 
+/**
+ * @file SDManager.h
+ * @brief Manages SD card operations, ensuring all paths start with '/'
+ * @date 2025-03-16 09:25
+ * @author Jan Wilms
+ */
+
+ #ifndef SDMANAGER_H
+ #define SDMANAGER_H
+ 
+ #include "FS.h"
+ #include "SD.h"
+ #include "SPI.h"
+ 
+ class SDManager {
+ public:
+     static bool begin(uint8_t csPin);
+     static void listDir(fs::FS &fs, const char *dirname, uint8_t levels);
+     static bool createFile(const char *path, const char *message);
+     static bool appendFile(const char *path, const char *message);
+     static bool renameFile(const char *oldPath, const char *newPath);
+     static bool deleteFile(const char *path);
+     static void ensureLeadingSlash(char *path);
+     static bool isFileExists(fs::FS &fs, const char *fullName);
+
+
+ };
+ 
+ #endif // SDMANAGER_H
+  
+======================================= 
+File: lib\SDManager\SDManager.cpp 
+======================================= 
+/**
+ * @file SDManager.cpp
+ * @brief Handles SD card operations, ensuring all paths start with '/'
+ * @date 2025-03-16 09:25
+ * @author Jan Wilms
+ */
+
+ #include "SDManager.h"
+
+ bool SDManager::begin(uint8_t csPin) {
+    if (!SD.begin(csPin)) {
+        Serial.println("[ERROR] SD Card Mount Failed!");
+        return false;
+    }
+    Serial.println("SD Card Mounted!");
+    return true;
+}
+
+ void SDManager::listDir(fs::FS &fs, const char *dirname, uint8_t levels) {
+    if (dirname[0] != '/') {
+        Serial.printf("[ERROR] Path must start with '/': %s\n", dirname);
+        return;
+    }
+
+    Serial.printf("📂 Listing directory: %s\n", dirname);
+    File root = fs.open(dirname);
+    
+    if (!root || !root.isDirectory()) {
+        Serial.printf("[ERROR] Failed to open directory: %s\n", dirname);
+        return;
+    }
+
+    File file = root.openNextFile();
+    while (file) {
+        if (file.isDirectory()) {
+            Serial.printf("  DIR: %s\n", file.name());
+            if (levels > 0) {
+                // Ensure path correctness by removing redundant slashes
+                String newPath = String(dirname);
+                if (newPath != "/") newPath += "/";
+                newPath += file.name();
+                listDir(fs, newPath.c_str(), levels - 1);
+            }
+        } else {
+            Serial.printf("  FILE: %s  SIZE: %d bytes\n", file.name(), file.size());
+        }
+        file = root.openNextFile();
+    }
+}
+
+bool SDManager::isFileExists(fs::FS &fs, const char *fullName) {
+    if (fullName[0] != '/') {
+        Serial.printf("[ERROR] Path must start with '/': %s\n", fullName);
+        return false;
+    }
+
+    File file = fs.open(fullName);
+    if (!file || file.isDirectory()) {
+        Serial.printf("[INFO] File not found: %s\n", fullName);
+        return false;
+    }
+
+    file.close();
+    Serial.printf("[INFO] File exists: %s\n", fullName);
+    return true;
+}
+
+
+
+ 
+ bool SDManager::createFile(const char *path, const char *message) {
+     char correctedPath[64];
+     strncpy(correctedPath, path, sizeof(correctedPath) - 1);
+     correctedPath[sizeof(correctedPath) - 1] = '\0';
+     ensureLeadingSlash(correctedPath);
+ 
+     Serial.printf("Creating file: %s\n", correctedPath);
+     File file = SD.open(correctedPath, FILE_WRITE);
+     if (!file) {
+         Serial.printf("[ERROR] Failed to create file: %s\n", correctedPath);
+         return false;
+     }
+     file.print(message);
+     file.close();
+     return true;
+ }
+ 
+ bool SDManager::appendFile(const char *path, const char *message) {
+     char correctedPath[64];
+     strncpy(correctedPath, path, sizeof(correctedPath) - 1);
+     correctedPath[sizeof(correctedPath) - 1] = '\0';
+     ensureLeadingSlash(correctedPath);
+ 
+     Serial.printf("Appending to file: %s\n", correctedPath);
+     File file = SD.open(correctedPath, FILE_APPEND);
+     if (!file) {
+         Serial.printf("[ERROR] Failed to open file for appending: %s\n", correctedPath);
+         return false;
+     }
+     file.print(message);
+     file.close();
+     return true;
+ }
+ 
+ bool SDManager::renameFile(const char *oldPath, const char *newPath) {
+     char correctedOldPath[64], correctedNewPath[64];
+     strncpy(correctedOldPath, oldPath, sizeof(correctedOldPath) - 1);
+     correctedOldPath[sizeof(correctedOldPath) - 1] = '\0';
+     ensureLeadingSlash(correctedOldPath);
+ 
+     strncpy(correctedNewPath, newPath, sizeof(correctedNewPath) - 1);
+     correctedNewPath[sizeof(correctedNewPath) - 1] = '\0';
+     ensureLeadingSlash(correctedNewPath);
+ 
+     Serial.printf("Renaming %s to %s\n", correctedOldPath, correctedNewPath);
+     if (!SD.rename(correctedOldPath, correctedNewPath)) {
+         Serial.printf("[ERROR] Rename failed: %s -> %s\n", correctedOldPath, correctedNewPath);
+         return false;
+     }
+     return true;
+ }
+ 
+ bool SDManager::deleteFile(const char *path) {
+     char correctedPath[64];
+     strncpy(correctedPath, path, sizeof(correctedPath) - 1);
+     correctedPath[sizeof(correctedPath) - 1] = '\0';
+     ensureLeadingSlash(correctedPath);
+ 
+     Serial.printf("Deleting file: %s\n", correctedPath);
+     if (!SD.remove(correctedPath)) {
+         Serial.printf("[ERROR] Failed to delete file: %s\n", correctedPath);
+         return false;
+     }
+     return true;
+ }
+ 
+ void SDManager::ensureLeadingSlash(char *path) {
+     if (path[0] != '/') {
+         memmove(path + 1, path, strlen(path) + 1);
+         path[0] = '/';
+     }
+ }
+  

@@ -1,0 +1,335 @@
+Merged JellyfishProject Code (Generated on 2025-03-16_08-15) 
+===================================================== 
+======================================= 
+File: src\main.cpp 
+======================================= 
+#include <Arduino.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+// Task handles
+TaskHandle_t Task1_Handle = NULL;
+TaskHandle_t Task2_Handle = NULL;
+
+// Task 1: Prints "Hello from Task 1" every 1 second
+void Task1(void *pvParameters) {
+    while (1) {
+        Serial.println("Hello from Task 1");
+        vTaskDelay(pdMS_TO_TICKS(1000)); // Delay 1 second
+    }
+}
+
+// Task 2: Prints "Hello from Task 2" every 2 seconds
+void Task2(void *pvParameters) {
+    while (1) {
+        Serial.println("Hello from Task 2");
+        vTaskDelay(pdMS_TO_TICKS(2000)); // Delay 2 seconds
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(1000); // Allow Serial to initialize
+
+    // Create FreeRTOS tasks
+    xTaskCreate(Task1, "Task 1", 2048, NULL, 1, &Task1_Handle);
+    xTaskCreate(Task2, "Task 2", 2048, NULL, 1, &Task2_Handle);
+}
+
+void loop() {
+    // FreeRTOS handles tasks, no need for code here
+    vTaskDelay(pdMS_TO_TICKS(1000)); 
+}
+
+ 
+======================================= 
+Library: lib\config 
+======================================= 
+======================================= 
+File: lib\config\config_secrets.h 
+======================================= 
+#ifndef CONFIG_SECRETS_H
+#define CONFIG_SECRETS_H
+
+#define WIFI_SSID "keijebijter"
+#define WIFI_PASSWORD "Helmondia'55"
+
+#endif // CONFIG_SECRETS_H
+ 
+======================================= 
+File: lib\config\HWconfig.h 
+======================================= 
+
+ #ifndef HWCONFIG_H
+ #define HWCONFIG_H
+ 
+ #include <Arduino.h>
+ #include "config_secrets.h"
+ 
+ // ======================= Pin Definitions =======================
+ #define LED_PIN        2   // Built-in LED
+ #define PIN_RGB        4   // LED Data Out
+ #define PIN_I2S_DOUT   14  // I2S Data
+ #define PIN_I2S_BCLK   13  // I2S Bit Clock
+ #define PIN_I2S_LRC    15  // I2S Left/Right Clock
+ #define PIN_SD_CS      5   // SD Card Chip Select
+ 
+ // SPI/I2C Pins
+ #define SDA           21
+ #define SCL           22
+ #define SD_CS          5
+ #define SPI_MOSI      23
+ #define SPI_MISO      19
+ #define SPI_SCK       18
+ 
+ // ======================= LED Configuration =======================
+ #define NUM_LEDS      10      // Number of LEDs
+ #define LED_TYPE      WS2812   // LED Type
+ #define LED_RGB_ORDER GRB      // RGB Order
+ 
+
+ 
+ #endif  // HWCONFIG_H
+  
+======================================= 
+Library: lib\JellyfishAudio 
+======================================= 
+======================================= 
+File: lib\JellyfishAudio\AudioOutputI2SWithLevel.h 
+======================================= 
+#ifndef AUDIO_OUTPUT_I2S_WITH_LEVEL_H
+#define AUDIO_OUTPUT_I2S_WITH_LEVEL_H
+
+#include <AudioOutputI2S.h>
+
+class AudioOutputI2SWithLevel : public AudioOutputI2S {
+public:
+    AudioOutputI2SWithLevel() : audioLevel(0), currentGain(1.0f) {}
+
+    // Override SetGain to store the gain value and call the base class.
+    virtual bool SetGain(float gain) override {
+        currentGain = gain;
+        return AudioOutputI2S::SetGain(gain);
+    }
+
+    // Getter for the current gain.
+    float getCurrentGain() const {
+        return currentGain;
+    }
+
+    // Override ConsumeSample to apply the gain manually and compute the audio level.
+    virtual bool ConsumeSample(int16_t sample[2]) override {
+        // Apply the current gain to both channels.
+        sample[0] = (int16_t)(sample[0] * currentGain);
+        sample[1] = (int16_t)(sample[1] * currentGain);
+
+        // Compute the audio level for LED updates.
+        int16_t left = abs(sample[0]);
+        int16_t right = abs(sample[1]);
+        audioLevel = (left + right) / 2;
+
+        return AudioOutputI2S::ConsumeSample(sample);
+    }
+
+    // Return the computed audio level.
+    int getAudioLevel() {
+        return audioLevel;
+    }
+
+private:
+    int audioLevel;
+    float currentGain;
+};
+
+#endif
+ 
+======================================= 
+File: lib\JellyfishAudio\JellyFishAudio.h 
+======================================= 
+#ifndef JELLYFISH_AUDIO_H
+#define JELLYFISH_AUDIO_H
+
+#include <Arduino.h>
+#include <SD.h>
+#include <AudioGeneratorMP3.h>
+#include <AudioFileSourceSD.h>
+#include "AudioOutputI2SWithLevel.h"
+#include "JellyfishLEDs.h"
+#include "Debug.h"
+#include "config.h"
+
+// Playlist structure
+struct PlaylistEntry {
+    const char* filename;
+    unsigned long startSec;
+    unsigned long endSec;
+};
+
+class JellyfishAudio {
+public:
+    JellyfishAudio(uint8_t csPin, uint8_t bclkPin, uint8_t lrcPin, uint8_t doutPin, JellyfishLEDs* ledController);
+
+    void begin();
+    void loop();
+    bool playFragment(const char* filename, unsigned long startSec, unsigned long endSec);
+    void stop();
+    int getAudioLevel();
+    void setPlaylist(PlaylistEntry* list, size_t size);
+    bool playNext();
+    bool isPlaying();
+
+private:
+    // Audio Configuration
+    uint8_t _csPin, _bclkPin, _lrcPin, _doutPin;
+    AudioFileSourceSD* file;
+    AudioGeneratorMP3* mp3;
+    AudioOutputI2SWithLevel* audioOutput;
+
+    // Fragment and Playlist Management
+    unsigned long fragmentStartTime, fragmentDuration;
+    bool playingFragment;
+    JellyfishLEDs* leds;
+    PlaylistEntry* playlist;
+    size_t playlistSize;
+    size_t currentTrack;
+    bool isFadingOut;
+};
+
+#endif
+ 
+======================================= 
+File: lib\JellyfishAudio\JellyFishAudio.cpp 
+======================================= 
+#include "JellyfishAudio.h"
+#include "Debug.h"
+
+JellyfishAudio::JellyfishAudio(uint8_t csPin, uint8_t bclkPin, uint8_t lrcPin, uint8_t doutPin, JellyfishLEDs* ledController)
+    : _csPin(csPin), _bclkPin(bclkPin), _lrcPin(lrcPin), _doutPin(doutPin),
+      file(nullptr), mp3(nullptr), audioOutput(nullptr),
+      fragmentStartTime(0), fragmentDuration(0), playingFragment(false), leds(ledController),
+      playlist(nullptr), playlistSize(0), currentTrack(0), isFadingOut(false) {}
+
+void JellyfishAudio::begin() {
+    if (!SD.begin(_csPin)) {
+        Serial.println("SD Card Mount Failed!");
+        while (1);
+    }
+    Serial.println("SD Card Mounted!");
+
+    audioOutput = new AudioOutputI2SWithLevel();
+    audioOutput->SetPinout(_bclkPin, _lrcPin, _doutPin);
+    audioOutput->SetOutputModeMono(false);
+    audioOutput->SetRate(44100);
+    audioOutput->SetGain(1.0);
+
+    mp3 = new AudioGeneratorMP3();
+}
+
+bool JellyfishAudio::playFragment(const char* filename, unsigned long startSec, unsigned long endSec) {
+    stop();
+
+    file = new AudioFileSourceSD(filename);
+    if (!file) {
+        PPL("Failed to open file: %s", filename);
+        return false;
+    }
+
+    const unsigned long bytesPerSec = 16000;
+    unsigned long startOffset = startSec * bytesPerSec;
+    file->seek(startOffset, SEEK_SET);
+
+    if (!mp3->begin(file, audioOutput)) {
+        PPL("MP3 playback failed to start!");
+        return false;
+    }
+
+    fragmentDuration = (endSec - startSec) * 1000;
+    fragmentStartTime = millis();
+    playingFragment = true;
+    isFadingOut = false;
+
+    PPL("Playing fragment from %lu s to %lu s", startSec, endSec);
+
+    audioOutput->SetGain(0);
+    return true;
+}
+
+void JellyfishAudio::loop() {
+    if (playingFragment && mp3 && mp3->isRunning()) {
+        mp3->loop();
+        unsigned long elapsedTime = millis() - fragmentStartTime;
+
+        if (elapsedTime < 3000) {
+            float gain = (float)elapsedTime / 3000.0;
+            audioOutput->SetGain(gain);
+        }
+        else if (fragmentDuration - elapsedTime < 3000) {
+            float gain = (float)(fragmentDuration - elapsedTime) / 3000.0;
+            audioOutput->SetGain(gain);
+            isFadingOut = true;
+        }
+        else {
+            audioOutput->SetGain(1.0);
+        }
+    } else if (playingFragment) {
+        PPL("Fragment finished. Moving to next track...");
+        playingFragment = false;
+        playNext();
+    }
+}
+
+void JellyfishAudio::stop() {
+    if (mp3 && mp3->isRunning()) {
+        mp3->stop();
+    }
+    playingFragment = false;
+}
+
+int JellyfishAudio::getAudioLevel() {
+    return audioOutput ? audioOutput->getAudioLevel() : 0;
+}
+
+void JellyfishAudio::setPlaylist(PlaylistEntry* list, size_t size) {
+    playlist = list;
+    playlistSize = size;
+    currentTrack = 0;
+}
+
+bool JellyfishAudio::playNext() {
+    if (currentTrack >= playlistSize) {
+        PPL("End of playlist reached. Stopping playback.");
+        currentTrack = 0;
+        playingFragment = false;
+        audioOutput->stop();
+        leds->silentMode();
+        return false;
+    }
+
+    PlaylistEntry entry = playlist[currentTrack];
+    currentTrack++;
+
+    return playFragment(entry.filename, entry.startSec, entry.endSec);
+}
+
+bool JellyfishAudio::isPlaying() {
+    return playingFragment;
+}
+ 
+======================================= 
+File: lib\JellyfishAudio\keywords.txt 
+======================================= 
+# JellyfishAudio - Keyword Definitions
+
+JellyfishAudio   KEYWORD1
+playTrack        KEYWORD2
+stopTrack        KEYWORD2
+pauseTrack       KEYWORD2
+resumeTrack      KEYWORD2
+isPlaying        KEYWORD2
+getAudioLevel    KEYWORD2
+setVolume        KEYWORD2
+getVolume        KEYWORD2
+fadeIn           KEYWORD2
+fadeOut          KEYWORD2
+setPlaylist      KEYWORD2
+ 

@@ -1,0 +1,64 @@
+# Jellyfish Project - Werkopdracht SDManager & DebugTask
+
+## 1. SDManager Implementatie
+
+### Functionaliteit:
+- Beheer van **alle SD-kaart operaties**, inclusief debug-logs en andere bestanden.
+- **Queue-systeem**: Taken mogen niet direct de SD-kaart aanspreken om prestatieproblemen te voorkomen.
+- Ondersteuning voor **bestanden lezen, schrijven, verwijderen, en directories beheren**.
+- Automatische **aanmaak van sessielogs** met bestandsnaam in het formaat:
+  - `log_YYYYMMDD_HHMMSS.log` (bijv. `log_20250316_121530.log`)
+- **Fallback-optie**: Als SD-kaart ontbreekt, wordt debug-output naar **Serial** gestuurd.
+
+### Technische Details:
+- Bestanden opslaan in een vaste directory op de SD-kaart (`/logs/`).
+- Timestamp bij iedere logregel (bijv. `[2025-03-16 12:05:00] SYSTEM OK`).
+- Bestandsgrootte limiet: als log groter wordt dan 512KB, nieuw logbestand starten.
+- Queue-systeem gebaseerd op **FreeRTOS queues** of **buffered write approach**.
+
+---
+
+## 2. Debug Task (Met Vijf Modi)
+
+### **Modi en Werking**
+| Mode | Omschrijving |
+|------|-------------|
+| 0 | Geen debug-output. |
+| 1 | Simpele statusmelding (elke 5 min) naar **Serial**. |
+| 2 | Uitgebreide debug-output naar **Serial**. |
+| 3 | Uitgebreide debug-output naar **SD-kaart**. |
+| 4 | Uitgebreide debug-output naar **Serial én SD-kaart**. |
+
+### **Mode 1: Simpele Status (Elke 5 Minuten)**
+- Geeft een korte melding van de status:  
+  - ✅ `SYSTEM OK` als alles werkt.  
+  - ❌ `WARNING: Heap < 20KB` als geheugen laag is.  
+- Output naar **Serial**.
+
+### **Mode 2-4: Uitgebreide Debugging**
+- Logging van:
+  - **Heap-gebruik** (totaal vrij, laagste ooit, potentieel lek).  
+  - **Stack-gebruik per taak** (met kritische drempels).  
+  - **Actieve takenlijst** (`vTaskList()`).  
+  - **CPU-gebruik per taak** (`vTaskGetRunTimeStats()`).  
+  - **Detectie van stack overflow en heap-fragmentatie**.  
+- Output afhankelijk van **mode-instelling (2, 3 of 4)**.
+
+### **Besturing van debugMode**
+- DebugMode schakelen via **globale variabele `debugMode = 0..4`**.  
+- **Optie om via RemoteXY te wisselen** (later te implementeren).  
+
+---
+
+## 3. Testscenario's
+1. **SDManager testen zonder debug-task** → Controleer of bestanden correct worden geschreven.  
+2. **Debug-task in Mode 1** → Korte logs elke 5 minuten.  
+3. **Debug-task in Mode 2-4** → Volledige logging activeren en output controleren.  
+4. **SD-kaart verwijderen** → Output moet automatisch naar Serial overschakelen als mode 3 of 4 actief is.  
+
+---
+
+## 4. Toekomstige uitbreidingen
+- Integratie met **WiFiManager** voor logging op een **webserver**.  
+- DebugMode schakelen via **RemoteXY of MQTT**.  
+- Meer geavanceerde **heap- en stack-analyse** met drempelwaarden.  

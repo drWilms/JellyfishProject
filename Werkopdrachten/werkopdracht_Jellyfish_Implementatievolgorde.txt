@@ -1,0 +1,95 @@
+# Jellyfish Project - Werkopdracht: Implementatievolgorde Core + Uitbreidingen
+
+## 1. Doel
+Het stap-voor-stap implementeren van een **stabiele Jellyfish Core** als basis voor uitbreidingen, met een gestructureerde strategie voor ontwikkeling, testen en integratie van nieuwe functionaliteiten.
+
+---
+
+## 2. Stap 1: Jellyfish Core Implementeren (Fundament)
+
+### **🔷 Wat wordt geïmplementeerd?**
+✅ **FreeRTOS Kernel** (Task Management, Scheduler, Prioriteiten)  
+✅ **Debug Task** (Mode 0-4: Geen, Simpel, Uitgebreid, SD, Beide)  
+✅ **FastLED Basis** (Één test-LED voor timingcontrole)  
+✅ **Audio Input & Basisverwerking** (Geluidssignaal uitlezen, geen effecten)  
+✅ **TimeManager** (RTC & WiFi Tijd Sync, zonder extra WiFi-verkeer)  
+✅ **SDManager** (Alleen logging, geen bestandsbeheer)  
+✅ **Queue & Timer Systemen** (Basisfunctionaliteit, geen complexe processen)  
+
+### **🔹 Validatie vóór verdergaan**
+✔ Debug Task werkt betrouwbaar.  
+✔ Basis FastLED-functionaliteit geeft stabiele output.  
+✔ Audio-invoer geeft consistente metingen.  
+✔ FreeRTOS-timers werken correct.  
+
+---
+
+## 3. Stap 2: Testomgeving inrichten (Feature Development)
+
+### **🔷 Acties**
+1. **GitHub Branch Structuur Activeren**  
+   - `core` branch maken als basis.  
+   - Nieuwe feature-branches voor elke uitbreiding.  
+2. **Testcode opzetten binnen Core**  
+   - Losse taken schrijven die uitbreidingen simuleren.  
+   - Debug-modi gebruiken om functionaliteit live te monitoren.  
+
+### **🔹 Validatie vóór verdergaan**
+✔ GitHub branches correct ingesteld.  
+✔ Basis-functionaliteiten gescheiden van uitbreidingen.  
+
+---
+
+## 4. Stap 3: Eerste Uitbreidingen Toevoegen (Losse Features)
+
+### **🔶 3.1 Audio-Reactieve LEDs**
+- FreeRTOS-taak verwerkt audio en update `audioLevel` variabele.  
+- LED-animaties in de loop() gebaseerd op deze waarde.  
+
+### **🔶 3.2 Basis Lichtshow Mechanisme**
+- Dynamisch beheer van LED-effecten via een queue.  
+- Test met enkele basis-lichtpatronen.  
+
+### **🔶 3.3 Geavanceerde Debug Logging**
+- Debug Task uitbreiden met CPU- en geheugengebruik-rapportage.  
+
+### **🔶 3.4 WiFi Functie Minimaliseren**
+- Tijd synchronisatie 1x per dag, geen continue verbinding.  
+
+### **🔹 Validatie vóór verdergaan**
+✔ Audio-reactieve LEDs reageren correct.  
+✔ Lichtshow-systeem werkt zonder timingproblemen.  
+✔ WiFi heeft geen impact op FreeRTOS prestaties.  
+
+---
+
+## 5. Stap 4: Complexe Uitbreidingen (Geavanceerde Modules)
+
+### **🔷 Wat wordt ontwikkeld?**
+🔹 **Volledige Lichtshow Animatie Engine** (Ingebouwd queue-systeem voor effecten)  
+🔹 **MP3-bestandsbeheer op SD** (Afspelen en beheren van tracks)  
+🔹 **RemoteXY/WebInterface** (Optioneel, voor real-time bediening)  
+🔹 **FFT/Frequentie-analyse voor preciezere audio-reacties**  
+
+### **🔹 Validatie vóór verdergaan**
+✔ Alle uitbreidingen werken **apart** zonder de Core te verstoren.  
+
+---
+
+## 6. Stap 5: Eindvalidatie en Optimalisatie
+
+### **🔷 Acties**
+- Geheugengebruik optimaliseren.  
+- Testen met verschillende debug-modi (0-4).  
+- Code cleanup en documentatie.  
+
+---
+
+## 7. Conclusie: Implementatievolgorde
+
+✔ **Stap 1: Jellyfish Core bouwen** (FreeRTOS, Debug Task, Basis FastLED, Audio Input, SDManager, TimeManager).  
+✔ **Stap 2: Testomgeving opzetten & GitHub branches instellen.**  
+✔ **Stap 3: Losse uitbreidingen individueel testen en valideren.**  
+✔ **Stap 4: Complexere modules gefaseerd toevoegen.**  
+✔ **Stap 5: Eindvalidatie & optimalisatie.**  
+

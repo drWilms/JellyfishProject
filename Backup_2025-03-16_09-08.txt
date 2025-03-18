@@ -1,0 +1,478 @@
+Merged JellyfishProject Code (Generated on 2025-03-16_09-08) 
+===================================================== 
+======================================= 
+File: src\main.cpp 
+======================================= 
+#include <Arduino.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "FastLED.h"
+#include "TimeManager.h"
+#include "HWconfig.h"
+
+// FastLED Setup
+CRGB leds[NUM_LEDS];
+float brightnessFactor = 0.0;
+uint32_t lastUpdateTime = 0;
+const uint16_t fadeInterval = 10;
+
+// Task Handles
+TaskHandle_t Task1_Handle = NULL;
+TaskHandle_t Task2_Handle = NULL;
+TaskHandle_t Task3_Handle = NULL;
+TaskHandle_t Task4_Handle = NULL;
+TaskHandle_t Task5_Handle = NULL; // Time Sync
+
+TimeManager timeManager; // Time Manager Instance
+
+// Task 1: Prints "1" every 1 second
+void Task1(void *pvParameters) {
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        Serial.print("1");
+        Serial.flush();
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(1000));
+    }
+}
+
+// Task 2: Prints "2" every 2 seconds
+void Task2(void *pvParameters) {
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        Serial.print("2");
+        Serial.flush();
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(2000));
+    }
+}
+
+// Task 3: Blinks onboard LED (0.3s ON, 2s OFF)
+void Task3(void *pvParameters) {
+    pinMode(LED_PIN, OUTPUT);
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        digitalWrite(LED_PIN, HIGH);
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(300));
+
+        digitalWrite(LED_PIN, LOW);
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(2000));
+    }
+}
+
+// Task 4: Prints "*" every 27 seconds
+void Task4(void *pvParameters) {
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        Serial.println("*");
+        Serial.flush();
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(27000));
+    }
+}
+
+// Task 5: Syncs Time Every 24 Hours
+void Task5(void *pvParameters) {
+    TickType_t lastWakeTime = xTaskGetTickCount();
+    while (1) {
+        timeManager.syncTime();
+        String timeStr = timeManager.getLocalDateTime();
+        Serial.println("Updated Local Time: " + timeStr);
+        Serial.flush();
+        vTaskDelayUntil(&lastWakeTime, pdMS_TO_TICKS(86400000)); // 24 hours
+    }
+}
+
+void setup() {
+    Serial.begin(115200);
+    delay(1000); // Allow Serial to initialize
+
+    // Initialize FastLED
+    FastLED.addLeds<WS2812, PIN_RGB, LED_RGB_ORDER>(leds, NUM_LEDS);
+    FastLED.clear();
+    FastLED.show();
+
+    // Create FreeRTOS tasks
+    xTaskCreate(Task1, "Task 1", 2048, NULL, 1, &Task1_Handle);
+    xTaskCreate(Task2, "Task 2", 2048, NULL, 2, &Task2_Handle);
+    xTaskCreate(Task3, "Task 3", 2048, NULL, 1, &Task3_Handle);
+    xTaskCreate(Task4, "Task 4", 2048, NULL, 1, &Task4_Handle);
+    xTaskCreate(Task5, "Task 5", 4096, NULL, 3, &Task5_Handle);
+}
+
+// Smooth fading effect (outside FreeRTOS)
+void updateFadingEffect() {
+    uint32_t currentTime = millis();
+    
+    if (currentTime - lastUpdateTime >= fadeInterval) {
+        lastUpdateTime = currentTime;
+        
+        brightnessFactor += 0.05;
+        if (brightnessFactor >= TWO_PI) brightnessFactor = 0;
+
+        float brightness = (sin(brightnessFactor) + 1.0) / 2.0;
+        uint8_t scaledBrightness = (uint8_t)(brightness * 255);
+
+        for (int i = 0; i < NUM_LEDS; i++) {
+            leds[i] = CRGB(scaledBrightness, scaledBrightness, scaledBrightness);
+        }
+        FastLED.show();
+    }
+}
+
+void loop() {
+    updateFadingEffect();
+    vTaskDelay(pdMS_TO_TICKS(1));
+}
+ 
+======================================= 
+Library: lib\config 
+======================================= 
+======================================= 
+File: lib\config\config_secrets.h 
+======================================= 
+#ifndef CONFIG_SECRETS_H
+#define CONFIG_SECRETS_H
+
+#define WIFI_SSID "keijebijter"
+#define WIFI_PASSWORD "Helmondia'55"
+
+#endif // CONFIG_SECRETS_H
+ 
+======================================= 
+File: lib\config\HWconfig.h 
+======================================= 
+
+ #ifndef HWCONFIG_H
+ #define HWCONFIG_H
+ 
+ #include <Arduino.h>
+ #include "config_secrets.h"
+ 
+ // ======================= Pin Definitions =======================
+ #define LED_PIN        2   // Built-in LED
+ #define PIN_RGB        4   // LED Data Out
+ #define PIN_I2S_DOUT   14  // I2S Data
+ #define PIN_I2S_BCLK   13  // I2S Bit Clock
+ #define PIN_I2S_LRC    15  // I2S Left/Right Clock
+ #define PIN_SD_CS      5   // SD Card Chip Select
+ 
+ // SPI/I2C Pins
+ #define SDA           21
+ #define SCL           22
+ #define SD_CS          5
+ #define SPI_MOSI      23
+ #define SPI_MISO      19
+ #define SPI_SCK       18
+ 
+ // ======================= LED Configuration =======================
+ #define NUM_LEDS      10      // Number of LEDs
+ #define LED_TYPE      WS2812   // LED Type
+ #define LED_RGB_ORDER GRB      // RGB Order
+ 
+
+ 
+ #endif  // HWCONFIG_H
+  
+======================================= 
+Library: lib\JellyfishAudio 
+======================================= 
+======================================= 
+File: lib\JellyfishAudio\AudioOutputI2SWithLevel.h 
+======================================= 
+#ifndef AUDIO_OUTPUT_I2S_WITH_LEVEL_H
+#define AUDIO_OUTPUT_I2S_WITH_LEVEL_H
+
+#include <AudioOutputI2S.h>
+
+class AudioOutputI2SWithLevel : public AudioOutputI2S {
+public:
+    AudioOutputI2SWithLevel() : audioLevel(0), currentGain(1.0f) {}
+
+    // Override SetGain to store the gain value and call the base class.
+    virtual bool SetGain(float gain) override {
+        currentGain = gain;
+        return AudioOutputI2S::SetGain(gain);
+    }
+
+    // Getter for the current gain.
+    float getCurrentGain() const {
+        return currentGain;
+    }
+
+    // Override ConsumeSample to apply the gain manually and compute the audio level.
+    virtual bool ConsumeSample(int16_t sample[2]) override {
+        // Apply the current gain to both channels.
+        sample[0] = (int16_t)(sample[0] * currentGain);
+        sample[1] = (int16_t)(sample[1] * currentGain);
+
+        // Compute the audio level for LED updates.
+        int16_t left = abs(sample[0]);
+        int16_t right = abs(sample[1]);
+        audioLevel = (left + right) / 2;
+
+        return AudioOutputI2S::ConsumeSample(sample);
+    }
+
+    // Return the computed audio level.
+    int getAudioLevel() {
+        return audioLevel;
+    }
+
+private:
+    int audioLevel;
+    float currentGain;
+};
+
+#endif
+ 
+======================================= 
+File: lib\JellyfishAudio\JellyFishAudio.h 
+======================================= 
+#ifndef JELLYFISH_AUDIO_H
+#define JELLYFISH_AUDIO_H
+
+#include <Arduino.h>
+#include <SD.h>
+#include <AudioGeneratorMP3.h>
+#include <AudioFileSourceSD.h>
+#include "AudioOutputI2SWithLevel.h"
+#include "JellyfishLEDs.h"
+#include "Debug.h"
+#include "config.h"
+
+// Playlist structure
+struct PlaylistEntry {
+    const char* filename;
+    unsigned long startSec;
+    unsigned long endSec;
+};
+
+class JellyfishAudio {
+public:
+    JellyfishAudio(uint8_t csPin, uint8_t bclkPin, uint8_t lrcPin, uint8_t doutPin, JellyfishLEDs* ledController);
+
+    void begin();
+    void loop();
+    bool playFragment(const char* filename, unsigned long startSec, unsigned long endSec);
+    void stop();
+    int getAudioLevel();
+    void setPlaylist(PlaylistEntry* list, size_t size);
+    bool playNext();
+    bool isPlaying();
+
+private:
+    // Audio Configuration
+    uint8_t _csPin, _bclkPin, _lrcPin, _doutPin;
+    AudioFileSourceSD* file;
+    AudioGeneratorMP3* mp3;
+    AudioOutputI2SWithLevel* audioOutput;
+
+    // Fragment and Playlist Management
+    unsigned long fragmentStartTime, fragmentDuration;
+    bool playingFragment;
+    JellyfishLEDs* leds;
+    PlaylistEntry* playlist;
+    size_t playlistSize;
+    size_t currentTrack;
+    bool isFadingOut;
+};
+
+#endif
+ 
+======================================= 
+File: lib\JellyfishAudio\JellyFishAudio.cpp 
+======================================= 
+#include "JellyfishAudio.h"
+#include "Debug.h"
+
+JellyfishAudio::JellyfishAudio(uint8_t csPin, uint8_t bclkPin, uint8_t lrcPin, uint8_t doutPin, JellyfishLEDs* ledController)
+    : _csPin(csPin), _bclkPin(bclkPin), _lrcPin(lrcPin), _doutPin(doutPin),
+      file(nullptr), mp3(nullptr), audioOutput(nullptr),
+      fragmentStartTime(0), fragmentDuration(0), playingFragment(false), leds(ledController),
+      playlist(nullptr), playlistSize(0), currentTrack(0), isFadingOut(false) {}
+
+void JellyfishAudio::begin() {
+    if (!SD.begin(_csPin)) {
+        Serial.println("SD Card Mount Failed!");
+        while (1);
+    }
+    Serial.println("SD Card Mounted!");
+
+    audioOutput = new AudioOutputI2SWithLevel();
+    audioOutput->SetPinout(_bclkPin, _lrcPin, _doutPin);
+    audioOutput->SetOutputModeMono(false);
+    audioOutput->SetRate(44100);
+    audioOutput->SetGain(1.0);
+
+    mp3 = new AudioGeneratorMP3();
+}
+
+bool JellyfishAudio::playFragment(const char* filename, unsigned long startSec, unsigned long endSec) {
+    stop();
+
+    file = new AudioFileSourceSD(filename);
+    if (!file) {
+        PPL("Failed to open file: %s", filename);
+        return false;
+    }
+
+    const unsigned long bytesPerSec = 16000;
+    unsigned long startOffset = startSec * bytesPerSec;
+    file->seek(startOffset, SEEK_SET);
+
+    if (!mp3->begin(file, audioOutput)) {
+        PPL("MP3 playback failed to start!");
+        return false;
+    }
+
+    fragmentDuration = (endSec - startSec) * 1000;
+    fragmentStartTime = millis();
+    playingFragment = true;
+    isFadingOut = false;
+
+    PPL("Playing fragment from %lu s to %lu s", startSec, endSec);
+
+    audioOutput->SetGain(0);
+    return true;
+}
+
+void JellyfishAudio::loop() {
+    if (playingFragment && mp3 && mp3->isRunning()) {
+        mp3->loop();
+        unsigned long elapsedTime = millis() - fragmentStartTime;
+
+        if (elapsedTime < 3000) {
+            float gain = (float)elapsedTime / 3000.0;
+            audioOutput->SetGain(gain);
+        }
+        else if (fragmentDuration - elapsedTime < 3000) {
+            float gain = (float)(fragmentDuration - elapsedTime) / 3000.0;
+            audioOutput->SetGain(gain);
+            isFadingOut = true;
+        }
+        else {
+            audioOutput->SetGain(1.0);
+        }
+    } else if (playingFragment) {
+        PPL("Fragment finished. Moving to next track...");
+        playingFragment = false;
+        playNext();
+    }
+}
+
+void JellyfishAudio::stop() {
+    if (mp3 && mp3->isRunning()) {
+        mp3->stop();
+    }
+    playingFragment = false;
+}
+
+int JellyfishAudio::getAudioLevel() {
+    return audioOutput ? audioOutput->getAudioLevel() : 0;
+}
+
+void JellyfishAudio::setPlaylist(PlaylistEntry* list, size_t size) {
+    playlist = list;
+    playlistSize = size;
+    currentTrack = 0;
+}
+
+bool JellyfishAudio::playNext() {
+    if (currentTrack >= playlistSize) {
+        PPL("End of playlist reached. Stopping playback.");
+        currentTrack = 0;
+        playingFragment = false;
+        audioOutput->stop();
+        leds->silentMode();
+        return false;
+    }
+
+    PlaylistEntry entry = playlist[currentTrack];
+    currentTrack++;
+
+    return playFragment(entry.filename, entry.startSec, entry.endSec);
+}
+
+bool JellyfishAudio::isPlaying() {
+    return playingFragment;
+}
+ 
+======================================= 
+File: lib\JellyfishAudio\keywords.txt 
+======================================= 
+# JellyfishAudio - Keyword Definitions
+
+JellyfishAudio   KEYWORD1
+playTrack        KEYWORD2
+stopTrack        KEYWORD2
+pauseTrack       KEYWORD2
+resumeTrack      KEYWORD2
+isPlaying        KEYWORD2
+getAudioLevel    KEYWORD2
+setVolume        KEYWORD2
+getVolume        KEYWORD2
+fadeIn           KEYWORD2
+fadeOut          KEYWORD2
+setPlaylist      KEYWORD2
+ 
+======================================= 
+Library: lib\WiFiManager 
+======================================= 
+======================================= 
+File: lib\WiFiManager\WiFiManager.h 
+======================================= 
+#ifndef WIFI_MANAGER_H
+#define WIFI_MANAGER_H
+
+#include <WiFi.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include "HWconfig.h"
+
+class WiFiManager {
+public:
+    WiFiManager();
+    void connect();
+    void disconnect();
+    String getDateTime(); // Fetches date/time
+private:
+    WiFiUDP ntpUDP;
+    NTPClient timeClient;
+};
+
+#endif // WIFI_MANAGER_H
+ 
+======================================= 
+File: lib\WiFiManager\WiFiManager.cpp 
+======================================= 
+#include "WiFiManager.h"
+
+WiFiManager::WiFiManager() : timeClient(ntpUDP, "pool.ntp.org", 0, 60000) {}
+
+void WiFiManager::connect() {
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    uint8_t attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 10) {
+        delay(1000);
+        Serial.print(".");
+        attempts++;
+    }
+    Serial.println(WiFi.status() == WL_CONNECTED ? "\nWiFi Connected" : "\nWiFi Failed");
+}
+
+void WiFiManager::disconnect() {
+    WiFi.disconnect();
+    WiFi.mode(WIFI_OFF);
+    Serial.println("WiFi Disconnected");
+}
+
+String WiFiManager::getDateTime() {
+    connect();
+    if (WiFi.status() == WL_CONNECTED) {
+        timeClient.begin();
+        timeClient.update();
+        disconnect();
+        return timeClient.getFormattedTime();
+    }
+    return "No Time";
+}
+ 
+WARNING: lib\TimerManager not found Skipping... 

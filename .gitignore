@@ -1,0 +1,18 @@
+# PlatformIO build and configuration files
+.pio/
+.vscode/
+libdeps/
+build/
+
+# Logs
+*.log
+
+# Backup files
+*.bak
+*.tmp
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+lib/config/config_secrets.h

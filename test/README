@@ -1,0 +1,43 @@
+Plan for Tomorrow – Start from Most Recent Push & Structured Refactoring
+📌 We will begin with the latest GitHub push and refactor specific areas before continuing development.
+
+🔹 Key Refactoring Areas & Why
+1️⃣ Move playFragment to a Dedicated FreeRTOS Task
+Why?
+
+Currently, playFragment() is triggered in setup(), which is not ideal.
+We need a dedicated FreeRTOS task to play MP3 fragments every 2 minutes.
+This avoids potential conflicts between loop() and task scheduling.
+How?
+
+Create a new Task6 (Task_PlayFragment) that plays a different MP3 fragment every 2 minutes.
+Ensure it does not interfere with other tasks like Task1 (printing) or Task5 (time sync).
+2️⃣ Audio Playback Fix – Prevent Auto-Resumption
+Why?
+
+MP3 playback resumes after the fragment finishes, which is incorrect.
+We need to fully stop playback and confirm it does not restart.
+How?
+
+Investigate mp3->stop(); → Ensure it truly stops playback.
+Verify playingFragment = false; works as expected.
+Check if AudioManager::loop() still attempts to restart playback.
+Possible fix: Add a hasStopped flag in AudioManager to prevent accidental resumption.
+3️⃣ Review Audio Fade-In/Fade-Out Task Timing
+Why?
+
+Current issue: If audio fades out while playFragment() stops playback, race conditions might occur.
+Goal: Ensure fade-out completes before stopping playback.
+How?
+
+Check task execution order in FreeRTOS.
+Add synchronization between Task_AudioFadeOut and playFragment.
+If needed, introduce a blocking mechanism so playFragment() waits for fade-out to complete.
+🔹 Plan for Tomorrow (Step-by-Step Execution Order)
+✅ 1. Start from the latest GitHub push.
+✅ 2. Implement Task6 for playing MP3 fragments every 2 minutes.
+✅ 3. Fix the audio resumption issue in AudioManager.
+✅ 4. Review FreeRTOS task execution for fade-in/fade-out synchronization.
+✅ 5. Test the entire system to confirm all refactored parts work as expected.
+
+This structured refactoring ensures we don't introduce new issues while improving functionality.

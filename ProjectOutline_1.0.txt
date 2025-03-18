@@ -1,0 +1,48 @@
+For ChatGPT:
+-no emoji'scheduling
+-no canvas
+-only produce code when asked to, but when debugging: limit your reasoning messages - produce the code
+-your have access to https://github.com/drWilms/JellyfishProject.git
+. Use `HWconfig.h` for all hardware settings, e.g. pin numbers
+. Use Java-like style with getters and Setters
+. english
+' add a date/time stamp to the comments header of code when you send a full code file
+. no implementation in .h, but in .cpp
+
+
+ Stage 1: Setting Up FreeRTOS (Basic Framework)
+✅ Verify JF_RTOS GitHub branch & PlatformIO project.
+✅ Install & configure FreeRTOS in PlatformIO.
+✅ Run a simple FreeRTOS test (minimal tasks, no functionality yet).
+🔹 Stage 2: Understanding & Using FreeRTOS Features
+✅ Learn task scheduling, priorities, and delays (vTaskDelay, vTaskDelayUntil).
+✅ Explore queues, notifications, semaphores for inter-task communication.
+✅ skip this: Simulate task execution flow using FreeRTOS-Sim on PC.
+🔹 Stage 3: Encapsulating Key Components for FreeRTOS
+✅ Structure self-made libraries for encapsulating modules.
+✅ Encapsulate & test ESP8266Audio, FastLED, WiFi, BH1750, RemoteXY individually.
+✅ Ensure each module works independently before task integration.
+🔹 Stage 4: Designing Task Structure & Scheduling
+✅ Define task responsibilities & priorities (Audio, LED, WiFi, RemoteXY).
+✅ Design communication between tasks (queues, event notifications).
+✅ Use diagram tools (Draw.io, Lucidchart, or PlantUML) to map event flow.
+🔹 Stage 5: Simulating LED & Audio Interaction
+✅ Use Processing or FastLED emulator to visualize LED effects.
+✅ Simulate audio-reactive LED behavior without running on hardware.
+✅ Adjust parameters before real hardware testing.
+🔹 Stage 6: Integration & Testing on Hardware
+✅ Merge encapsulated modules into FreeRTOS tasks.
+✅ Optimize timing, queues, and resource management.
+✅ Debug using task-aware FreeRTOS debugging tools.
+🔹 Stage 7: Expanding Functionality (Future Steps)
+✅ Add WiFi time sync & optimize power management.
+✅ Implement RemoteXY-based control.
+✅ Test future URL streaming from ESP8266Audio.
+
+
+📌 Key Takeaways for Future FreeRTOS Usage
+✔ You need to properly isolate tasks so they don't interfere with other system functions.
+✔ Task deletion (vTaskDelete(NULL)) is critical to avoid memory leaks.
+✔ Pinned execution on Core 1 (for tasks interacting with hardware) improves stability.
+✔ Explicit this->setVolume() usage ensures task-safe object access.
+✔ Avoid mixing loop-based execution with task-based execution (e.g., audioManager.loop() was redundant in loop() while FreeRTOS tasks handled fades).

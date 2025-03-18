@@ -1,0 +1,37 @@
+ FreeRTOS Debugging Strategy
+1. Checking Task Execution
+✔ Use uxTaskGetStackHighWaterMark() to detect stack overflows.
+✔ Use vTaskList() to monitor CPU usage and blocked tasks.
+✔ Implement a watchdog task to check if tasks are stuck.
+
+2. Debugging Task Crashes
+✔ Enable FreeRTOS config flags:
+
+c
+Copy
+Edit
+#define configCHECK_FOR_STACK_OVERFLOW 2
+#define configUSE_MALLOC_FAILED_HOOK 1
+✔ Use static allocation for critical tasks to avoid heap fragmentation.
+✔ Check ESP-IDF panic handler for crash logs (Guru Meditation Error).
+
+3. Queue Debugging
+✔ Print queue status using uxQueueMessagesWaiting().
+✔ If tasks are not receiving messages, verify queue creation size and handling logic.
+✔ Use xQueuePeek() to check queue content without removing items.
+
+📌 Key Debugging Rules in Jellyfish Project
+✔ Never remove working FreeRTOS tasks without explicit confirmation.
+✔ Always check if existing timers and queues are being used before adding new ones.
+✔ FreeRTOS tasks must be integrated into the queue/timer system—no standalone loops.
+✔ Follow the structured debugging protocol:
+
+Step 1: Confirm task execution with debug prints.
+Step 2: Verify queue communication.
+Step 3: Check FreeRTOS memory usage.
+Step 4: If everything looks fine but fails, check hardware-related causes.
+
+What Will Be Different Next Time?
+If you ask for a full FreeRTOS adaptation, I will assume you mean all related files in one update.
+If EBGT tasks must be preserved, I will never remove or modify them without confirmation.
+I will generate the full package immediately without incremental steps, unless you request them.
